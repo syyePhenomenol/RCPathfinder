@@ -2,18 +2,16 @@
 using RandomizerCore.Logic.StateLogic;
 using RCPathfinder;
 
-namespace RCPathfinder.RMPathfinder
+namespace RMPathfinder.Actions
 {
     public record TransitionAction : AbstractAction
     {
         private readonly ProgressionManager pm;
-        private readonly Term position;
         private readonly LogicDef transitionSourceLogic;
 
-        public TransitionAction(ProgressionManager pm, Term position, Term newPosition) : base($"tn-{position.Name}", newPosition)
+        public TransitionAction(ProgressionManager pm, Term position, Term newPosition) : base(position.Name, "tran", newPosition)
         {
             this.pm = pm;
-            this.position = position;
             transitionSourceLogic = pm.lm.LogicLookup[position.Name];
         }
 
@@ -22,13 +20,8 @@ namespace RCPathfinder.RMPathfinder
         /// </summary>
         public override bool TryDo(Term position, StateUnion state, out StateUnion? newState)
         {
-            pm.StartTemp();
-            pm.SetState(this.position, state);
-            bool success = transitionSourceLogic.CanGet(pm);
-            pm.RemoveTempItems();
-
             newState = state;
-            return success;
+            return transitionSourceLogic.CanGet(pm);
         }
     }
 }

@@ -8,7 +8,7 @@ namespace RCPathfinder
     {
         /// <summary>
         /// Returns a SearchNode for every specified destination where possible.
-        /// If no destinations were provided, instead returns all the SearchNodes reached at the specified max depth.
+        /// If no destinations were provided, instead searches to exhaustion or until the max depth is reached.
         /// Search can resume from previous SearchState if provided, in which case the starting position/state are ignored.
         /// </summary>
         public static ReadOnlyDictionary<Term, Node> DijkstraSearch(SearchSettings ss, SearchParams sp, SearchState? search = null)
@@ -19,15 +19,9 @@ namespace RCPathfinder
 
             Dictionary<Term, Node> results = new();
 
-            int nodeCount = 0;
-
-            Stopwatch sw = Stopwatch.StartNew();
-
             while (search.TryPop(out Node? node))
             {
                 if (node is null) throw new NullReferenceException(nameof(Node));
-
-                nodeCount++;
 
                 if (destinations.Contains(node.Position) && !results.ContainsKey(node.Position))
                 {
@@ -40,22 +34,21 @@ namespace RCPathfinder
                     }
                 }
 
+                ss.LocalPM.SetState(node.Position, node.State);
+
                 foreach (AbstractAction action in ss.GetActions(node))
                 {
                     if (Node.TryTraverse(node, action, search, out Node? child))
                     {
-                        //RMPathfinder.RMPathfinder.Instance.LogDebug($"{child.PrintActions()}");
                         search.Push(child);
                     }
                 }
 
+                ss.LocalPM.SetState(node.Position, null);
+
                 // Cost limit reached
                 if (search.Depth > sp.MaxCost) break;
             }
-
-            sw.Stop();
-
-            RMPathfinder.RMPathfinder.Instance.LogDebug($"Explored {nodeCount} nodes in {sw.ElapsedMilliseconds} ms. Average nodes/ms: {(float)nodeCount / sw.ElapsedMilliseconds}");
 
             return new(results);
         }

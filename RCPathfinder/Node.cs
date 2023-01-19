@@ -79,7 +79,7 @@ namespace RCPathfinder
 
             foreach (AbstractAction action in actions)
             {
-                text += $"-> {action.Name}";
+                text += $"-> {action.BaseName}";
             }
 
             return text;

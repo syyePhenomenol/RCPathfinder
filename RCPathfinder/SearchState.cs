@@ -10,6 +10,7 @@ namespace RCPathfinder
         public HashSet<Term> Indeterminate { get; }
         public PriorityQueue<(float, int), Node> Queue { get; }
         public float Depth { get; private set; }
+        public int NodesTraversed { get; private set; }
 
         public SearchState(SearchParams sp)
         {
@@ -31,7 +32,12 @@ namespace RCPathfinder
 
         public bool TryPop(out Node? node)
         {
-            return Queue.TryExtractMin(out (float, int) _, out node);
+            if (Queue.TryExtractMin(out (float, int) _, out node))
+            {
+                NodesTraversed++;
+                return true;
+            }
+            return false;
         }
 
         public void Push(Node? node)

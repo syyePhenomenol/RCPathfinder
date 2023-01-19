@@ -8,7 +8,7 @@ namespace RCPathfinder
         private readonly ProgressionManager pm;
         private readonly DNFLogicDef newPositionDNF;
 
-        public StateLogicAction(string name, Term term, ProgressionManager pm, float cost = 1f) : base(name, term, cost)
+        public StateLogicAction(string name, Term term, ProgressionManager pm, float cost = 1f) : base(name, "stlo", term, cost)
         {
             this.pm = pm;
 
@@ -23,12 +23,7 @@ namespace RCPathfinder
 
         public override bool TryDo(Term position, StateUnion state, out StateUnion? newState)
         {
-            pm.StartTemp();
-            pm.SetState(position, state);
-            bool success = newPositionDNF.CheckForUpdatedState(pm, null, new(), position, out newState);
-            pm.RemoveTempItems();
-
-            return success;
+            return newPositionDNF.CheckForUpdatedState(pm, null, new(), position, out newState);
         }
     }
 }

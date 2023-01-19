@@ -1,15 +1,16 @@
 ﻿using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 using RandomizerMod.RC.StateVariables;
+using RCPathfinder;
 
-namespace RCPathfinder.RMPathfinder
+namespace RMPathfinder.Actions
 {
     public record StartWarpAction : AbstractAction
     {
         private readonly ProgressionManager pm;
         private readonly WarpToStartResetVariable startReset;
 
-        public StartWarpAction(ProgressionManager pm, Term newPosition) : base($"sw-{newPosition.Name}", newPosition)
+        public StartWarpAction(ProgressionManager pm, Term newPosition) : base(newPosition.Name, "stwa", newPosition)
         {
             this.pm = pm;
             startReset = new(nameof(StartWarpAction), pm.lm);

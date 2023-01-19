@@ -1,11 +1,12 @@
 ﻿using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
+using RCPathfinder;
 
-namespace RCPathfinder.RMPathfinder
+namespace RMPathfinder.Actions
 {
     public record StartLinkedAction : AbstractAction
     {
-        public StartLinkedAction(Term newPosition) : base($"sl-{newPosition.Name}", newPosition) { }
+        public StartLinkedAction(Term newPosition) : base(newPosition.Name, "stli", newPosition) { }
 
         public override bool TryDo(Term position, StateUnion state, out StateUnion? newState)
         {

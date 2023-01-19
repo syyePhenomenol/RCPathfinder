@@ -1,18 +1,19 @@
 ﻿using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 using RandomizerMod.RC.StateVariables;
+using RCPathfinder;
 
-namespace RCPathfinder.RMPathfinder
+namespace RMPathfinder.Actions
 {
     /// <summary>
     /// TODO: Make it work with Benchwarp/BenchRando
     /// </summary>
-    public record BenchWarpAction : AbstractAction
+    public record BenchwarpAction : AbstractAction
     {
         private readonly BenchResetVariable brv;
         private readonly ProgressionManager pm;
 
-        public BenchWarpAction(Term newPosition, ProgressionManager pm) : base($"bw-{newPosition.Name}", newPosition)
+        public BenchwarpAction(Term newPosition, ProgressionManager pm) : base(newPosition.Name, "bewa", newPosition)
         {
             brv = new(newPosition.Name, pm.lm);
             this.pm = pm;

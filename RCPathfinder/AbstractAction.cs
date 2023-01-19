@@ -5,17 +5,24 @@ namespace RCPathfinder
 {
     public abstract record AbstractAction
     {
-        public string Name { get; }
+        public string FullName => $"{Prefix}-{BaseName}";
+        public string BaseName { get; }
+        public string Prefix { get; }
         public Term NewPosition { get; }
         public float Cost { get; }
 
-        public AbstractAction(string name, Term newPosition, float cost = 1f)
+        public AbstractAction(string baseName, string prefix, Term newPosition, float cost = 1f)
         {
-            Name = name;
+            BaseName = baseName;
+            Prefix = prefix;
             NewPosition = newPosition;
             Cost = cost;
         }
 
+        /// <summary>
+        /// Please do not modify the ProgressionManager here, or if you really have to, call StartTemp() and RemoveTempItems().
+        /// But this will most likely impact performance.
+        /// </summary>
         public abstract bool TryDo(Term position, StateUnion state, out StateUnion? newState);
     }
 }
