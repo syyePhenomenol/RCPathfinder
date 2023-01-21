@@ -3,7 +3,7 @@ using RandomizerCore.Logic.StateLogic;
 
 namespace RCPathfinder
 {
-    public abstract record AbstractAction
+    public abstract class AbstractAction
     {
         public string FullName => $"{Prefix}-{BaseName}";
         public string BaseName { get; }

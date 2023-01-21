@@ -3,7 +3,7 @@ using RandomizerCore.Logic.StateLogic;
 
 namespace RCPathfinder
 {
-    public record StateLogicAction : AbstractAction
+    public class StateLogicAction : AbstractAction
     {
         private readonly ProgressionManager pm;
         private readonly DNFLogicDef newPositionDNF;

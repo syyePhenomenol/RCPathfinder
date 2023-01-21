@@ -12,6 +12,12 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <Compile Remove="RMPathfinder\**" />
+	  <EmbeddedResource Remove="RMPathfinder\**" />
+	  <None Remove="RMPathfinder\**" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Using Remove="System.Net.Http" />
 		<Using Remove="System.Threading" />
 		<Using Remove="System.Threading.Tasks" />

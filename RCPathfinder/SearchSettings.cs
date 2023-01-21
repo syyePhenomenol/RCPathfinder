@@ -15,7 +15,8 @@ namespace RCPathfinder
         public SearchSettings(ProgressionManager reference)
         {
             ReferencePM = reference;
-            LocalPM = new(reference.lm, reference.ctx);
+
+            LocalPM = CreateLocalPM(reference);
 
             // Temporarily remove initial progression to reset the PM
             if (LocalPM.ctx is not null)
@@ -27,16 +28,24 @@ namespace RCPathfinder
             }
 
             // Treat all state-valued terms as positions
-            Dictionary<string, Term> positions = ReferencePM.lm.Terms.Where(t => t.Type is TermType.State)
+            Dictionary<string, Term> positions = LocalPM.lm.Terms.Where(t => t.Type is TermType.State)
                 .ToDictionary(t => t.Name, t => t);
             Positions = new(positions);
+        }
+
+        protected virtual ProgressionManager CreateLocalPM(ProgressionManager reference)
+        {
+            return new(reference.lm, reference.ctx);
         }
 
         public virtual void UpdateProgression()
         {
             foreach (Term term in LocalPM.lm.Terms.Where(t => t.Type is not TermType.State))
             {
-                LocalPM.Set(term, ReferencePM.Get(term));
+                if (ReferencePM.lm.GetTerm(term.Name) is not null)
+                {
+                    LocalPM.Set(term, ReferencePM.Get(term));
+                }
             }
         }
 
