@@ -1,42 +1,83 @@
-﻿using RandomizerCore.Collections;
+﻿using System.Collections.ObjectModel;
+using RandomizerCore.Collections;
 using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 
 namespace RCPathfinder
 {
     public class SearchState
-    {
-        public Dictionary<Term, List<State>> Visited { get; }
-        public HashSet<Term> Indeterminate { get; }
-        public PriorityQueue<(float, int), Node> Queue { get; }
-        public float Depth { get; private set; }
-        public int NodesTraversed { get; private set; }
+    {        
+        /// <summary>
+        /// Visited states per position term. Separate collection by a specified key.
+        /// </summary>
+        internal Dictionary<string, Dictionary<Term, List<State>>> Visited { get; }
+        /// <summary>
+        /// The terms for which an indeterminate state has been reached. Separate collection by a specified key.
+        /// </summary>
+        internal Dictionary<string, HashSet<Term>> Indeterminate { get; }
+        /// <summary>
+        /// An unordered collection of nodes in the queue.
+        /// </summary>
+        public ReadOnlyCollection<((float cost, int depth) priority, Node node)> QueueNodes => new(_queue.UnorderedItems.ToArray());
+        private readonly PriorityQueue<(float cost, int depth), Node> _queue;
+        /// <summary>
+        /// A collection of result nodes, including those from previous searches.
+        /// </summary>
+        public ReadOnlyCollection<Node> ResultNodes => new(_resultNodes.ToArray());
+        private readonly HashSet<Node> _resultNodes;
+        /// <summary>
+        /// A collection of result nodes, only from the current search.
+        /// </summary>
+        public ReadOnlyCollection<Node> NewResultNodes => new(_newResultNodes.ToArray());
+        private readonly HashSet<Node> _newResultNodes;
+        /// <summary>
+        /// How many nodes were popped from the queue. Also includes previous searches.
+        /// </summary>
+        public int NodesPopped { get; private set; }
 
         public SearchState(SearchParams sp)
         {
-            Visited = new();
-            if (sp.StartState.Count > 0)
+            Visited = sp.StartPositions.Select(p => p.Key).Distinct().ToDictionary(k => k, k => new Dictionary<Term, List<State>>());
+            Indeterminate = sp.StartPositions.Select(p => p.Key).Distinct().ToDictionary(k => k, k => new HashSet<Term>());
+            _queue = new();
+
+            foreach (StartPosition start in sp.StartPositions)
             {
-                Visited.Add(sp.StartPosition, new(sp.StartState));
+                if (sp.StartState.Count > 0)
+                {
+                    Visited[start.Key][start.Term] = new(sp.StartState);
+                }
+                else
+                {
+                    Indeterminate[start.Key].Add(start.Term);
+                }
+
+                _queue.Enqueue((start.Cost, 0), new(start.Key, start.Term, start.Cost, sp.StartState));
             }
 
-            Indeterminate = new();
-            if (sp.StartState.Count is 0)
-            {
-                Indeterminate.Add(sp.StartPosition);
-            }
+            _resultNodes = new();
+            _newResultNodes = new();
+        }
 
-            Queue = new();
-            Queue.Enqueue((0f, 0), new(sp.StartPosition, sp.StartState));
+        internal void ResetForNewSearch()
+        {
+            _newResultNodes.Clear();
+        }
+
+        public void AddResultNode(Node node)
+        {
+            _resultNodes.Add(node);
+            _newResultNodes.Add(node);
         }
 
         public bool TryPop(out Node? node)
         {
-            if (Queue.TryExtractMin(out (float, int) _, out node))
+            if (_queue.TryPop(out node))
             {
-                NodesTraversed++;
+                NodesPopped++;
                 return true;
             }
+            node = default;
             return false;
         }
 
@@ -44,9 +85,7 @@ namespace RCPathfinder
         {
             if (node is null) throw new NullReferenceException();
 
-            Queue.Enqueue((node.Cost, node.Depth), node);
-
-            Depth = Math.Max(Depth, node.Depth);
+            _queue.Enqueue((node.Cost, node.Depth), node);
         }
     }
 }

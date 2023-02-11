@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<AssemblyTitle>RCPathfinder</AssemblyTitle>
@@ -9,13 +9,33 @@
 		<LangVersion>latest</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<HollowKnightRefs>C:\Program Files (x86)\Steam\steamapps\common\Hollow Knight\hollow_knight_Data\Managed</HollowKnightRefs>
 	</PropertyGroup>
 
-	<ItemGroup>
-	  <Compile Remove="RMPathfinder\**" />
-	  <EmbeddedResource Remove="RMPathfinder\**" />
-	  <None Remove="RMPathfinder\**" />
-	</ItemGroup>
+	<Target Name="CopyMod" AfterTargets="PostBuildEvent">
+		<RemoveDir Directories="$(ExportDir)/$(TargetName)/" />
+		<MakeDir Directories="$(ExportDir)/$(TargetName)/" />
+		<MakeDir Directories="$(ExportDir)/$(TargetName)/zip/" />
+		<MakeDir Condition="!Exists('$(HollowKnightRefs)/Mods/$(TargetName)/')" Directories="$(HollowKnightRefs)/Mods/$(TargetName)/" />
+		<Copy SourceFiles="$(TargetPath);$(TargetDir)/$(TargetName).pdb" DestinationFolder="$(HollowKnightRefs)/Mods/$(TargetName)/" />
+		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ExportDir)/$(TargetName)/" />
+		<Copy SourceFiles="../README.md;$(TargetPath);$(TargetDir)/$(TargetName).pdb" DestinationFolder="$(ExportDir)/$(TargetName)/zip/" />
+		<ZipDirectory SourceDirectory="$(ExportDir)/$(TargetName)/zip/" DestinationFile="$(ExportDir)/$(TargetName)/$(TargetName).zip" />
+		<RemoveDir Directories="$(ExportDir)/$(TargetName)/zip/" />
+
+		<GetFileHash Files="$(ExportDir)/$(TargetName)/$(TargetName).zip" Algorithm="SHA256">
+			<Output TaskParameter="Items" ItemName="FilesWithHashes" />
+		</GetFileHash>
+		<WriteLinesToFile File="$(ExportDir)/$(TargetName)/SHA.txt" Lines="@(FilesWithHashes->'%(FileHash)')" Overwrite="true" Encoding="UTF-8" />
+
+		<GetAssemblyIdentity AssemblyFiles="$(TargetPath)">
+			<Output TaskParameter="Assemblies" ItemName="Targets" />
+		</GetAssemblyIdentity>
+		<ItemGroup>
+			<VersionNumber Include="@(Targets->'%(Version)')" />
+		</ItemGroup>
+		<WriteLinesToFile File="$(ExportDir)/$(TargetName)/version.txt" Lines="@(VersionNumber)" Overwrite="true" Encoding="UTF-8" />
+	</Target>
 
 	<ItemGroup>
 		<Using Remove="System.Net.Http" />

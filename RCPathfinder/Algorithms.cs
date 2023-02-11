@@ -1,56 +1,68 @@
-﻿using System.Collections.ObjectModel;
-using System.Diagnostics;
-using RandomizerCore.Logic;
+﻿using RandomizerCore.Logic;
+using RCPathfinder.Actions;
 
 namespace RCPathfinder
 {
     public static class Algorithms
     {
-        /// <summary>
-        /// Returns a SearchNode for every specified destination where possible.
-        /// If no destinations were provided, instead searches to exhaustion or until the max depth is reached.
-        /// Search can resume from previous SearchState if provided, in which case the starting position/state are ignored.
-        /// </summary>
-        public static ReadOnlyDictionary<Term, Node> DijkstraSearch(SearchSettings ss, SearchParams sp, SearchState? search = null)
+        public static bool DijkstraSearch(SearchData sd, SearchParams sp, SearchState ss)
         {
-            HashSet<Term> destinations = new(sp.Destinations);
+            ss.ResetForNewSearch();
 
-            search ??= new(sp);
+            HashSet<Term> dests = new(sp.Destinations);
 
-            Dictionary<Term, Node> results = new();
+            HashSet<Term> remainingStarts = new(sp.StartPositions.Select(s => s.Term));
+            HashSet<Term> remainingDests = new(sp.Destinations);
 
-            while (search.TryPop(out Node? node))
+            while (ss.TryPop(out Node? node))
             {
                 if (node is null) throw new NullReferenceException(nameof(Node));
 
-                if (destinations.Contains(node.Position) && !results.ContainsKey(node.Position))
-                {
-                    results.Add(node.Position, node);
-
-                    if (sp.SingleResultTermination || results.Count == destinations.Count)
-                    {
-                        search.Push(node);
-                        break;
-                    }
-                }
-
-                ss.LocalPM.SetState(node.Position, node.State);
-
-                foreach (AbstractAction action in ss.GetActions(node))
-                {
-                    if (Node.TryTraverse(node, action, search, out Node? child))
-                    {
-                        search.Push(child);
-                    }
-                }
-
-                ss.LocalPM.SetState(node.Position, null);
-
                 // Cost limit reached
-                if (search.Depth > sp.MaxCost) break;
+                if (node.Cost > sp.MaxCost)
+                {
+                    ss.Push(node);
+                    return true;
+                }
+
+                // Destination reached
+                if (!ss.ResultNodes.Contains(node) && dests.Contains(node.Position))
+                {
+                    remainingStarts.Remove(node.StartPosition);
+                    remainingDests.Remove(node.Position);
+
+                    ss.AddResultNode(node);
+
+                    bool terminate = sp.TerminationCondition switch
+                    {
+                        TerminationConditionType.Any => true,
+                        TerminationConditionType.EveryDestination => !remainingDests.Any(),
+                        TerminationConditionType.EveryStartAndDestination => !remainingStarts.Any() && !remainingDests.Any(),
+                        _ => false
+                    };
+
+                    if (terminate)
+                    {
+                        ss.Push(node);
+                        return true;
+                    }
+                }
+
+                // Add states to current position and traverse to adjacent nodes
+                sd.LocalPM.SetState(node.Position, node.States);
+
+                foreach (AbstractAction action in sd.GetActions(node))
+                {
+                    if (Node.TryTraverse(sd.LocalPM, ss, node, action, out Node? child))
+                    {
+                        ss.Push(child);
+                    }
+                }
+
+                sd.LocalPM.SetState(node.Position, sd.DefaultState);
             }
 
-            return new(results);
+            return false;
         }
     }
 }

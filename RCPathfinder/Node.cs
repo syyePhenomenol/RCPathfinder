@@ -1,32 +1,39 @@
 ﻿using System.Collections.ObjectModel;
 using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
+using RCPathfinder.Actions;
 
 namespace RCPathfinder
 {
     public class Node
     {
+        public string Key { get; }
+        public Term StartPosition { get; }
         public Term Position { get; }
-        public StateUnion State { get; }
-        public float Cost { get; }
+        public StateUnion States { get; }
         public ReadOnlyCollection<AbstractAction> Actions => actions.AsReadOnly();
-
         private readonly List<AbstractAction> actions;
+        public float Cost { get; }
+        public int Depth { get; }
 
-        public int Depth { get; } = 0;
-
-        internal static bool TryTraverse(Node parent, AbstractAction action, SearchState search, out Node? child)
+        /// <summary>
+        /// Checks if the action can be done, then checks if the new position/states have not already been visited.
+        /// </summary>
+        internal static bool TryTraverse(ProgressionManager pm, SearchState search, Node parent, AbstractAction action, out Node? child)
         {
-            if (action.TryDo(parent.Position, parent.State, out StateUnion? newState))
+            if (action.TryDo(pm, parent.Position, parent.States, out Term? newPosition, out StateUnion? newStates)) 
             {
-                if (newState is null) throw new NullReferenceException();
+                if (newPosition is null || newStates is null) throw new NullReferenceException();
 
-                if (newState.Count is 0)
+                if (!search.Visited.TryGetValue(parent.Key, out var visited)) throw new KeyNotFoundException();
+                if (!search.Indeterminate.TryGetValue(parent.Key, out var indeterminate)) throw new KeyNotFoundException();
+
+                if (newStates.Count == 0)
                 {
-                    if (!search.Indeterminate.Contains(action.NewPosition))
+                    if (!indeterminate.Contains(newPosition))
                     {
-                        child = new Node(parent, action, newState);
-                        search.Indeterminate.Add(action.NewPosition);
+                        child = new(parent, action, newPosition, newStates);
+                        indeterminate.Add(newPosition);
                         return true;
                     }
 
@@ -34,18 +41,17 @@ namespace RCPathfinder
                     return false;
                 }
 
-                if (!search.Visited.TryGetValue(action.NewPosition, out List<State> visited))
+                if (!visited.TryGetValue(newPosition, out var visitedStates))
                 {
-                    child = new Node(parent, action, newState);
-                    search.Visited[action.NewPosition] = new(newState);
+                    child = new(parent, action, newPosition, newStates);
+                    visited[newPosition] = new(newStates);
                     return true;
                 }
 
-                List<State> unvisited = newState.Subtract(visited);
-                if (unvisited.Count > 0)
+                if (newStates.TrySubtract(visitedStates, out StateUnion unvisitedStates))
                 {
-                    child = new Node(parent, action, new(unvisited));
-                    visited.AddRange(unvisited);
+                    child = new(parent, action, newPosition, unvisitedStates);
+                    visitedStates.AddRange(unvisitedStates);
                     return true;
                 }
             }
@@ -54,22 +60,24 @@ namespace RCPathfinder
             return false;
         }
 
-        internal Node(Term position, StateUnion state)
+        internal Node(string key, Term position, float cost, StateUnion states)
         {
+            Key = key;
+            StartPosition = position;
             Position = position;
-            State = state;
+            Cost = cost;
+            States = states;
             actions = new();
         }
 
-        internal Node(Node parent, AbstractAction action, StateUnion newState)
+        internal Node(Node parent, AbstractAction action, Term newPosition, StateUnion newStates)
         {
-            Position = action.NewPosition;
-            State = newState;
+            Key = parent.Key;
+            StartPosition = parent.StartPosition;
+            Position = newPosition;
+            States = newStates;
+            actions = new(parent.actions) { action };
             Cost = parent.Cost + action.Cost;
-            actions = new(parent.actions)
-            {
-                action
-            };
             Depth = parent.Depth + 1;
         }
 
@@ -79,10 +87,10 @@ namespace RCPathfinder
 
             foreach (AbstractAction action in actions)
             {
-                text += $"-> {action.BaseName}";
+                text += $"-> {action.DebugName}\n";
             }
 
-            return text;
+            return text.Substring(0, text.Length - 1);
         }
     }
 }
