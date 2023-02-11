@@ -22,7 +22,7 @@ namespace RCPathfinder
                 if (node.Cost > sp.MaxCost)
                 {
                     ss.Push(node);
-                    return true;
+                    return false;
                 }
 
                 // Destination reached
