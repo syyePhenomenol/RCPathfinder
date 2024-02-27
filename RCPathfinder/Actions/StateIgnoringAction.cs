@@ -11,16 +11,18 @@ namespace RCPathfinder.Actions
     {
         public override string Prefix => "stig";
 
-        private readonly LogicDef logic;
+        public LogicDef Logic { get; init; }
 
         public StateIgnoringAction(Term term, LogicDef logic, float cost = 1f) : base(term.Name, new(logic.GetTerms().Where(t => t.Type is TermType.State)), term, cost)
         {
-            this.logic = logic;
+            Logic = logic;
         }
+
+        public StateIgnoringAction(StateLogicAction stlo) : this(stlo.Destination, stlo.Logic, stlo.Cost) { }
 
         public override bool TryDo(ProgressionManager pm, Term currentPosition, StateUnion currentStates, out Term? newPosition, out StateUnion? newStates)
         {
-            if (logic.CanGet(pm))
+            if (Logic.CanGet(pm))
             {
                 newPosition = Destination;
                 newStates = currentStates;

@@ -19,8 +19,13 @@ namespace RCPathfinder
         /// <summary>
         /// Checks if the action can be done, then checks if the new position/states have not already been visited.
         /// </summary>
-        internal static bool TryTraverse(ProgressionManager pm, SearchState search, Node parent, AbstractAction action, out Node? child)
+        internal static bool TryTraverse(ProgressionManager pm, SearchState search, Node parent, AbstractAction action, out Node? child, bool stateless = false)
         {
+            if (stateless && action is StateLogicAction stla)
+            {
+                action = new StateIgnoringAction(stla);
+            }
+
             if (action.TryDo(pm, parent.Position, parent.States, out Term? newPosition, out StateUnion? newStates)) 
             {
                 if (newPosition is null || newStates is null) throw new NullReferenceException();

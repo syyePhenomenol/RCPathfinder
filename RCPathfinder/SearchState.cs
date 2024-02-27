@@ -15,6 +15,17 @@ namespace RCPathfinder
         /// The terms for which an indeterminate state has been reached. Separate collection by a specified key.
         /// </summary>
         internal Dictionary<string, HashSet<Term>> Indeterminate { get; }
+
+        /// <summary>
+        /// The combinations of starts and destinations for which a path has been found.
+        /// </summary>
+        public HashSet<(Term start, Term destination)> FoundStartDestinationPairs { get; }
+
+        /// <summary>
+        /// The combinations of starts and destinations for which a path has not been found yet.
+        /// </summary>
+        public HashSet<(Term start, Term destination)> RemainingStartDestinationPairs { get; }
+
         /// <summary>
         /// An unordered collection of nodes in the queue.
         /// </summary>
@@ -34,11 +45,22 @@ namespace RCPathfinder
         /// How many nodes were popped from the queue. Also includes previous searches.
         /// </summary>
         public int NodesPopped { get; private set; }
+        /// <summary>
+        /// Total time spent searching. Also includes previous searches.
+        /// </summary>
+        public float SearchTime { get; internal set; }
+        /// <summary>
+        /// If the search has timed out.
+        /// </summary>
+        public bool HasTimedOut { get; internal set; }
 
         public SearchState(SearchParams sp)
         {
             Visited = sp.StartPositions.Select(p => p.Key).Distinct().ToDictionary(k => k, k => new Dictionary<Term, List<State>>());
             Indeterminate = sp.StartPositions.Select(p => p.Key).Distinct().ToDictionary(k => k, k => new HashSet<Term>());
+            FoundStartDestinationPairs = new();
+            RemainingStartDestinationPairs = new(sp.StartPositions.SelectMany(s => sp.Destinations.Select(d => (s.Term, d))));
+
             _queue = new();
 
             foreach (StartPosition start in sp.StartPositions)
