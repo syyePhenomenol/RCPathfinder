@@ -7,7 +7,8 @@ namespace RCPathfinder.Actions
     public abstract class AbstractAction
     {
         public string Name { get; }
-        public string DebugName => $"{Prefix} - {(StartPositions.Any() ? StartPositions.Select(p => p.Name).Aggregate((a, b) => $"{a}, {b}") : "NONE")} -> {Destination.Name}";
+        public string DebugString => $"{Prefix} - {(StartPositions.Any() ? StartPositions.Select(p => p.Name).Aggregate((a, b) => $"{a}, {b}") : "NONE")} -> {Destination.Name}";
+        public string DebugStringShort => $"{Prefix} - ... -> {Destination.Name}";
         public abstract string Prefix { get; }
         public ReadOnlyCollection<Term> StartPositions { get; }
         public Term Destination { get; }

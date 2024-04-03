@@ -121,7 +121,7 @@ namespace RCPathfinder
         /// </summary>
         public virtual List<AbstractAction> GetActions(Node node)
         {
-            if (ActionLookup.TryGetValue(node.Position, out var actions))
+            if (ActionLookup.TryGetValue(node.CurrentPosition, out var actions))
             {
                 return actions.Where(a => ReferencePM.lm.GetTerm(a.Destination.Name) is null
                     || ReferencePM.Has(a.Destination)).ToList();

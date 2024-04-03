@@ -6,25 +6,16 @@ using RandomizerCore.Logic.StateLogic;
 namespace RCPathfinder
 {
     public class SearchState
-    {        
-        /// <summary>
-        /// Visited states per position term. Separate collection by a specified key.
-        /// </summary>
-        internal Dictionary<string, Dictionary<Term, List<State>>> Visited { get; }
-        /// <summary>
-        /// The terms for which an indeterminate state has been reached. Separate collection by a specified key.
-        /// </summary>
-        internal Dictionary<string, HashSet<Term>> Indeterminate { get; }
-
+    {   
         /// <summary>
         /// The combinations of starts and destinations for which a path has been found.
         /// </summary>
-        public HashSet<(Term start, Term destination)> FoundStartDestinationPairs { get; }
+        public HashSet<(StartPosition start, Term destination)> FoundStartDestinationPairs { get; }
 
         /// <summary>
         /// The combinations of starts and destinations for which a path has not been found yet.
         /// </summary>
-        public HashSet<(Term start, Term destination)> RemainingStartDestinationPairs { get; }
+        public HashSet<(StartPosition start, Term destination)> RemainingStartDestinationPairs { get; }
 
         /// <summary>
         /// An unordered collection of nodes in the queue.
@@ -54,31 +45,26 @@ namespace RCPathfinder
         /// </summary>
         public bool HasTimedOut { get; internal set; }
 
+        /// <summary>
+        /// Collections of visited states by a StartPosition key.
+        /// </summary>
+        private readonly Dictionary<string, StateUnionCollection> _stateUnionCollections;
+
         public SearchState(SearchParams sp)
         {
-            Visited = sp.StartPositions.Select(p => p.Key).Distinct().ToDictionary(k => k, k => new Dictionary<Term, List<State>>());
-            Indeterminate = sp.StartPositions.Select(p => p.Key).Distinct().ToDictionary(k => k, k => new HashSet<Term>());
             FoundStartDestinationPairs = new();
-            RemainingStartDestinationPairs = new(sp.StartPositions.SelectMany(s => sp.Destinations.Select(d => (s.Term, d))));
+            RemainingStartDestinationPairs = new(sp.StartPositions.SelectMany(s => sp.Destinations.Select(d => (s, d))));
 
             _queue = new();
-
-            foreach (StartPosition start in sp.StartPositions)
-            {
-                if (sp.StartState.Count > 0)
-                {
-                    Visited[start.Key][start.Term] = new(sp.StartState);
-                }
-                else
-                {
-                    Indeterminate[start.Key].Add(start.Term);
-                }
-
-                _queue.Enqueue((start.Cost, 0), new(start.Key, start.Term, start.Cost, sp.StartState));
-            }
-
             _resultNodes = new();
             _newResultNodes = new();
+
+            _stateUnionCollections = sp.StartPositions.GroupBy(p => p.Key).ToDictionary<IGrouping<string, StartPosition>, string, StateUnionCollection>(k => k.Key, k => new(k, sp.StartState));
+
+            foreach (StartPosition start in sp.StartPositions ?? Enumerable.Empty<StartPosition>())
+            {
+                _queue.Enqueue((start.Cost, 0), new(start, sp.StartState ?? StateUnion.Empty, _stateUnionCollections[start.Key]));
+            }
         }
 
         internal void ResetForNewSearch()

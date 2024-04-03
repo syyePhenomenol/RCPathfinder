@@ -7,56 +7,40 @@ namespace RCPathfinder
 {
     public class Node
     {
-        public string Key { get; }
-        public Term StartPosition { get; }
-        public Term Position { get; }
-        public StateUnion States { get; }
-        public ReadOnlyCollection<AbstractAction> Actions => actions.AsReadOnly();
-        private readonly List<AbstractAction> actions;
+        public StartPosition StartPosition { get; }
+        public Term CurrentPosition { get; }
+        public StateUnion CurrentStates { get; }
+        public ReadOnlyCollection<AbstractAction> Actions => _actions.AsReadOnly();
+        private readonly List<AbstractAction> _actions;
         public float Cost { get; }
         public int Depth { get; }
+        internal StateUnionCollection StateUnionCollection { get; }
 
         /// <summary>
         /// Checks if the action can be done, then checks if the new position/states have not already been visited.
         /// </summary>
-        internal static bool TryTraverse(ProgressionManager pm, SearchState search, Node parent, AbstractAction action, out Node? child, bool stateless = false)
+        internal static bool TryTraverse(ProgressionManager pm, SearchParams sp, Node parent, AbstractAction action, out Node? child)
         {
-            if (stateless && action is StateLogicAction stla)
+            if (sp.Stateless && action is StateLogicAction stla)
             {
                 action = new StateIgnoringAction(stla);
             }
 
-            if (action.TryDo(pm, parent.Position, parent.States, out Term? newPosition, out StateUnion? newStates)) 
+            if (action.TryDo(pm, parent.CurrentPosition, parent.CurrentStates, out Term? newPosition, out StateUnion? newStates)) 
             {
                 if (newPosition is null || newStates is null) throw new NullReferenceException();
 
-                if (!search.Visited.TryGetValue(parent.Key, out var visited)) throw new KeyNotFoundException();
-                if (!search.Indeterminate.TryGetValue(parent.Key, out var indeterminate)) throw new KeyNotFoundException();
-
-                if (newStates.Count == 0)
+                if (!sp.AllowBacktracking && parent.IsPreviouslyVisitedPosition(newPosition))
                 {
-                    if (!indeterminate.Contains(newPosition))
-                    {
-                        child = new(parent, action, newPosition, newStates);
-                        indeterminate.Add(newPosition);
-                        return true;
-                    }
-
                     child = default;
                     return false;
                 }
 
-                if (!visited.TryGetValue(newPosition, out var visitedStates))
+                if (parent.StateUnionCollection.TryAddStates(newPosition, newStates, out var unvisitedStates))
                 {
-                    child = new(parent, action, newPosition, newStates);
-                    visited[newPosition] = new(newStates);
-                    return true;
-                }
+                    if (unvisitedStates is null) throw new NullReferenceException();
 
-                if (newStates.TrySubtract(visitedStates, out StateUnion unvisitedStates))
-                {
                     child = new(parent, action, newPosition, unvisitedStates);
-                    visitedStates.AddRange(unvisitedStates);
                     return true;
                 }
             }
@@ -65,34 +49,55 @@ namespace RCPathfinder
             return false;
         }
 
-        internal Node(string key, Term position, float cost, StateUnion states)
+        internal Node(StartPosition startPosition, StateUnion startStates, StateUnionCollection suc)
         {
-            Key = key;
-            StartPosition = position;
-            Position = position;
-            Cost = cost;
-            States = states;
-            actions = new();
+            StartPosition = startPosition;
+            CurrentPosition = startPosition.Term;
+            CurrentStates = startStates;
+            _actions = new();
+            Cost = startPosition.Cost;
+            StateUnionCollection = suc;
         }
 
         internal Node(Node parent, AbstractAction action, Term newPosition, StateUnion newStates)
         {
-            Key = parent.Key;
             StartPosition = parent.StartPosition;
-            Position = newPosition;
-            States = newStates;
-            actions = new(parent.actions) { action };
+            CurrentPosition = newPosition;
+            CurrentStates = newStates;
+            _actions = new(parent._actions) { action };
             Cost = parent.Cost + action.Cost;
             Depth = parent.Depth + 1;
+            StateUnionCollection = parent.StateUnionCollection;
+        }
+
+        public bool IsPreviouslyVisitedPosition(Term position)
+        {
+            return StartPosition.Term == position || _actions.Any(a => a.Destination == position);
         }
 
         public string PrintActions()
         {
+            if (!_actions.Any()) return "";
+
             string text = "";
 
-            foreach (AbstractAction action in actions)
+            foreach (AbstractAction action in _actions)
             {
-                text += $"-> {action.DebugName}\n";
+                text += $"-> {action.DebugString}\n";
+            }
+
+            return text.Substring(0, text.Length - 1);
+        }
+
+        public string PrintActionsShort()
+        {
+            if (!_actions.Any()) return "";
+
+            string text = "";
+
+            foreach (AbstractAction action in _actions)
+            {
+                text += $"-> {action.DebugStringShort}\n";
             }
 
             return text.Substring(0, text.Length - 1);

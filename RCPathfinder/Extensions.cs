@@ -8,7 +8,7 @@ namespace RCPathfinder
     {
         /// <summary>
         /// Removes states from left that are comparably equal to those in right.
-        /// Returns true if the resulting diffeence is not empty.
+        /// Returns true if the resulting difference is not empty.
         /// </summary>
         public static bool TrySubtract(this StateUnion left, List<State> right, out StateUnion result)
         {

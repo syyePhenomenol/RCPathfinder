@@ -7,11 +7,6 @@ namespace RCPathfinder
     {
         public static bool DijkstraSearch(SearchData sd, SearchParams sp, SearchState ss)
         {
-            return DijkstraSearch(sd, sp, ss, false);
-        }
-
-        public static bool DijkstraSearch(SearchData sd, SearchParams sp, SearchState ss, bool stateless)
-        {
             ss.ResetForNewSearch();
 
             Stopwatch timer = Stopwatch.StartNew();
@@ -20,62 +15,76 @@ namespace RCPathfinder
             {
                 if (node is null) throw new NullReferenceException(nameof(Node));
 
-                // Time limit reached. Continue search stateless if not already done so
-                if (timer.ElapsedMilliseconds > sp.MaxTime && !stateless && sp.ContinueStateless)
+                // RCPathfinderDebugMod.Instance?.LogDebug(node.PrintActions());
+
+                // Time limit reached.
+                if (timer.ElapsedMilliseconds > sp.MaxTime)
                 {
+                    // RCPathfinderDebugMod.Instance?.LogDebug("Timed out");
+
                     ss.Push(node);
                     ss.SearchTime += timer.ElapsedMilliseconds;
                     ss.HasTimedOut = true;
-                    return DijkstraSearch(sd, sp, ss, true);
+
+                    // RCPathfinderDebugMod.Instance?.LogDebug("Finishing search");
+                    return false;
                 }
 
                 // Cost limit reached
                 if (node.Cost > sp.MaxCost)
                 {
+                    // RCPathfinderDebugMod.Instance?.LogDebug("Max cost reached");
+
                     ss.Push(node);
                     ss.SearchTime += timer.ElapsedMilliseconds;
                     return false;
                 }
 
                 // Destination reached
-                if (!ss.ResultNodes.Contains(node) && sp.Destinations.Contains(node.Position))
+                if (!ss.ResultNodes.Contains(node) && sp.Destinations.Contains(node.CurrentPosition))
                 {
+                    // RCPathfinderDebugMod.Instance?.LogDebug($"Destination found: {node.Position.Name}");
+
                     ss.AddResultNode(node);
 
                     bool terminate = sp.TerminationCondition switch
                     {
                         TerminationConditionType.Any => true,
-                        TerminationConditionType.AnyUniqueDestination => ss.FoundStartDestinationPairs.All(pair => pair.destination != node.Position),
-                        TerminationConditionType.AnyUniqueStartAndDestination => !ss.FoundStartDestinationPairs.Contains((node.StartPosition, node.Position)),
-                        TerminationConditionType.EveryDestination => ss.RemainingStartDestinationPairs.All(pair => pair.destination == node.Position),
-                        TerminationConditionType.EveryStartAndDestination => ss.RemainingStartDestinationPairs.All(pair => pair == (node.StartPosition, node.Position)),
+                        TerminationConditionType.AnyUniqueDestination => ss.FoundStartDestinationPairs.All(pair => pair.destination != node.CurrentPosition),
+                        TerminationConditionType.AnyUniqueStartAndDestination => !ss.FoundStartDestinationPairs.Contains((node.StartPosition, node.CurrentPosition)),
+                        TerminationConditionType.EveryDestination => ss.RemainingStartDestinationPairs.All(pair => pair.destination == node.CurrentPosition),
+                        TerminationConditionType.EveryStartAndDestination => ss.RemainingStartDestinationPairs.All(pair => pair == (node.StartPosition, node.CurrentPosition)),
                         _ => false
                     };
 
-                    ss.FoundStartDestinationPairs.Add((node.StartPosition, node.Position));
-                    ss.RemainingStartDestinationPairs.Remove((node.StartPosition, node.Position));
+                    ss.FoundStartDestinationPairs.Add((node.StartPosition, node.CurrentPosition));
+                    ss.RemainingStartDestinationPairs.Remove((node.StartPosition, node.CurrentPosition));
 
                     if (terminate)
                     {
+                        // RCPathfinderDebugMod.Instance?.LogDebug("Termination condition reached");
                         ss.Push(node);
+                        ss.SearchTime += timer.ElapsedMilliseconds;
                         return true;
                     }
                 }
 
                 // Add states to current position and traverse to adjacent nodes
-                sd.LocalPM.SetState(node.Position, node.States);
+                sd.LocalPM.SetState(node.CurrentPosition, node.CurrentStates);
 
                 foreach (AbstractAction action in sd.GetActions(node))
                 {
-                    if (Node.TryTraverse(sd.LocalPM, ss, node, action, out Node? child, stateless))
+                    if (Node.TryTraverse(sd.LocalPM, sp, node, action, out Node? child))
                     {
                         ss.Push(child);
                     }
                 }
 
-                sd.LocalPM.SetState(node.Position, sd.DefaultState);
+                sd.LocalPM.SetState(node.CurrentPosition, sd.DefaultState);
             }
 
+            // RCPathfinderDebugMod.Instance?.LogDebug("Search fully exhausted");
+            ss.SearchTime += timer.ElapsedMilliseconds;
             return false;
         }
     }
