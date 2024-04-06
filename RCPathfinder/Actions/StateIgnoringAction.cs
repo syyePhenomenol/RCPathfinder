@@ -20,16 +20,14 @@ namespace RCPathfinder.Actions
 
         public StateIgnoringAction(StateLogicAction stlo) : this(stlo.Destination, stlo.Logic, stlo.Cost) { }
 
-        public override bool TryDo(ProgressionManager pm, Term currentPosition, StateUnion currentStates, out Term? newPosition, out StateUnion? newStates)
+        public override bool TryDo(ProgressionManager pm, Term currentPosition, StateUnion currentStates, out StateUnion? satisfiableStates)
         {
             if (Logic.CanGet(pm))
             {
-                newPosition = Destination;
-                newStates = currentStates;
+                satisfiableStates = currentStates;
                 return true;
             }
-            newPosition = default;
-            newStates = default;
+            satisfiableStates = default;
             return false;
         }
     }

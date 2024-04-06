@@ -23,9 +23,10 @@ namespace RCPathfinder.Actions
         }
 
         /// <summary>
-        /// Checks whether or not the action can be performed with the given progression, position and state.
+        /// The pm has no states except for the current position.
+        /// Whether or not the output states have been visited is not checked here.
         /// Please do not modify the ProgressionManager here, as this is bad for performance.
         /// </summary>
-        public abstract bool TryDo(ProgressionManager pm, Term currentPosition, StateUnion currentStates, out Term? newPosition, out StateUnion? newStates);
+        public abstract bool TryDo(ProgressionManager pm, Term currentPosition, StateUnion currentStates, out StateUnion? satisfiableStates);
     }
 }

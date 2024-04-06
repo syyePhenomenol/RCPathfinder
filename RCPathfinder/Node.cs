@@ -14,60 +14,68 @@ namespace RCPathfinder
         private readonly List<AbstractAction> _actions;
         public float Cost { get; }
         public int Depth { get; }
-        internal StateUnionCollection StateUnionCollection { get; }
 
-        /// <summary>
-        /// Checks if the action can be done, then checks if the new position/states have not already been visited.
-        /// </summary>
-        internal static bool TryTraverse(ProgressionManager pm, SearchParams sp, Node parent, AbstractAction action, out Node? child)
-        {
-            if (sp.Stateless && action is StateLogicAction stla)
-            {
-                action = new StateIgnoringAction(stla);
-            }
+        private Dictionary<Term, StateUnion> _visitedStatesLookup;
 
-            if (action.TryDo(pm, parent.CurrentPosition, parent.CurrentStates, out Term? newPosition, out StateUnion? newStates)) 
-            {
-                if (newPosition is null || newStates is null) throw new NullReferenceException();
-
-                if (!sp.AllowBacktracking && parent.IsPreviouslyVisitedPosition(newPosition))
-                {
-                    child = default;
-                    return false;
-                }
-
-                if (parent.StateUnionCollection.TryAddStates(newPosition, newStates, out var unvisitedStates))
-                {
-                    if (unvisitedStates is null) throw new NullReferenceException();
-
-                    child = new(parent, action, newPosition, unvisitedStates);
-                    return true;
-                }
-            }
-
-            child = default;
-            return false;
-        }
-
-        internal Node(StartPosition startPosition, StateUnion startStates, StateUnionCollection suc)
+        internal Node(StartPosition startPosition, StateUnion startStates, Dictionary<Term, StateUnion> visitedStates)
         {
             StartPosition = startPosition;
             CurrentPosition = startPosition.Term;
             CurrentStates = startStates;
             _actions = new();
             Cost = startPosition.Cost;
-            StateUnionCollection = suc;
+            _visitedStatesLookup = visitedStates;
+
+            if (!TryAddVisitedStates(startPosition.Term, startStates, out var _)) throw new InvalidDataException();
         }
 
-        internal Node(Node parent, AbstractAction action, Term newPosition, StateUnion newStates)
+        internal Node(Node parent, AbstractAction action, StateUnion newStates)
         {
             StartPosition = parent.StartPosition;
-            CurrentPosition = newPosition;
+            CurrentPosition = action.Destination;
             CurrentStates = newStates;
             _actions = new(parent._actions) { action };
             Cost = parent.Cost + action.Cost;
             Depth = parent.Depth + 1;
-            StateUnionCollection = parent.StateUnionCollection;
+            _visitedStatesLookup = parent._visitedStatesLookup;
+        }
+        
+        internal bool TryTraverse(ProgressionManager pm, AbstractAction action, out Node? child)
+        {
+            if (action.TryDo(pm, CurrentPosition, CurrentStates, out var satisfiableStates))
+            {
+                if (satisfiableStates is null) throw new NullReferenceException();
+            
+                if (TryAddVisitedStates(action.Destination, satisfiableStates, out var unvisitedStates))
+                {
+                    child = new(this, action, unvisitedStates);
+                    return true;
+                }
+            }
+                
+            child = default;
+            return false;            
+        }
+
+        /// <summary>
+        /// Returns true if any new or better states are added.
+        /// </summary>
+        internal bool TryAddVisitedStates(Term position, StateUnion states, out StateUnion newStates)
+        {
+            if (!_visitedStatesLookup.TryGetValue(position, out var visitedStates))
+            {
+                newStates = states;
+                _visitedStatesLookup.Add(position, states);
+                return true;
+            }
+
+            if (states.TrySubtractAndUnion(visitedStates, out newStates, out StateUnion newVisitedStates))
+            {
+                _visitedStatesLookup[position] = newVisitedStates;
+                return true;
+            }
+
+            return false;
         }
 
         public bool IsPreviouslyVisitedPosition(Term position)

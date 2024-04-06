@@ -45,11 +45,6 @@ namespace RCPathfinder
         /// </summary>
         public bool HasTimedOut { get; internal set; }
 
-        /// <summary>
-        /// Collections of visited states by a StartPosition key.
-        /// </summary>
-        private readonly Dictionary<string, StateUnionCollection> _stateUnionCollections;
-
         public SearchState(SearchParams sp)
         {
             FoundStartDestinationPairs = new();
@@ -59,11 +54,17 @@ namespace RCPathfinder
             _resultNodes = new();
             _newResultNodes = new();
 
-            _stateUnionCollections = sp.StartPositions.GroupBy(p => p.Key).ToDictionary<IGrouping<string, StartPosition>, string, StateUnionCollection>(k => k.Key, k => new(k, sp.StartState));
+            Dictionary<string, Dictionary<Term, StateUnion>> visitedStateLookups = new();
 
             foreach (StartPosition start in sp.StartPositions ?? Enumerable.Empty<StartPosition>())
             {
-                _queue.Enqueue((start.Cost, 0), new(start, sp.StartState ?? StateUnion.Empty, _stateUnionCollections[start.Key]));
+                if (!visitedStateLookups.TryGetValue(start.Key, out var visited))
+                {
+                    visited = new();
+                    visitedStateLookups.Add(start.Key, visited);
+                }
+                
+                _queue.Enqueue((start.Cost, 0), new(start, sp.StartState ?? StateUnion.Empty, visited));
             }
         }
 

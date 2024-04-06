@@ -13,17 +13,12 @@ namespace RCPathfinder.Actions
 
         public PlacementAction(Term startPosition, Term destination, float cost = 1f) : base(startPosition.Name, new HashSet<Term> { startPosition }, destination, cost) { }
 
-        public override bool TryDo(ProgressionManager pm, Term currentPosition, StateUnion currentStates, out Term? newPosition, out StateUnion? newStates)
+        public override bool TryDo(ProgressionManager pm, Term currentPosition, StateUnion currentStates, out StateUnion? satisfiableStates)
         {
-            if (currentPosition == StartPositions[0])
-            {
-                newPosition = Destination;
-                newStates = currentStates;
-                return true;
-            }
-            newPosition = null;
-            newStates = null;
-            return false;
+            if (currentPosition != StartPositions[0]) throw new InvalidDataException();
+
+            satisfiableStates = currentStates;
+            return true;
         }
     }
 }

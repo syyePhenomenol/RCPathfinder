@@ -3,6 +3,7 @@ using RandomizerCore;
 using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 using RandomizerCore.LogicItems;
+using RandomizerCore.StringLogic;
 using RCPathfinder.Actions;
 
 namespace RCPathfinder
@@ -10,19 +11,18 @@ namespace RCPathfinder
     public class SearchData
     {
         public ProgressionManager LocalPM { get; }
-        protected ProgressionManager ReferencePM { get; }
-
+        public ProgressionManager ReferencePM { get; }
         public ReadOnlyCollection<Term> Positions { get; }
         public ReadOnlyDictionary<string, Term> PositionLookup { get; }
         public ReadOnlyCollection<AbstractAction> Actions { get; }
         public ReadOnlyDictionary<Term, ReadOnlyCollection<AbstractAction>> ActionLookup { get; }
+        private Dictionary<Term, Term> _proxyBoolTermLookup;
 
-        public StateUnion DefaultState { get; }
-
-        public SearchData(ProgressionManager reference)
+        public SearchData(ProgressionManager pm)
         {
-            ReferencePM = reference;
-            LocalPM = CreateLocalPM();
+            ReferencePM = pm;
+            _proxyBoolTermLookup = new();
+            LocalPM = new(new(CreateLocalLM(new(pm.lm))), pm.ctx);
 
             // Temporarily remove initial progression to reset the PM
             if (LocalPM.ctx is not null)
@@ -37,16 +37,39 @@ namespace RCPathfinder
             PositionLookup = new(Positions.ToDictionary(p => p.Name, p => p));
             Actions = new(CreateActions().Distinct().ToArray());
             ActionLookup = new(CreateActionLookup().ToDictionary(kvp => kvp.Key, kvp => new ReadOnlyCollection<AbstractAction>(kvp.Value.Distinct().OrderBy(a => a.Destination.Id).ToArray())));
-
-            DefaultState = LocalPM.lm.StateManager.DefaultStateSingleton;
         }
 
         /// <summary>
         /// Override this method to customize logic in the locally stored ProgressionManager.
+        /// By default, replaces projection tokens with new bool term tokens to evaluate StateLogicDefs
+        /// by individual StateProviders at a time.
         /// </summary>
-        protected virtual ProgressionManager CreateLocalPM()
+        protected virtual LogicManagerBuilder CreateLocalLM(LogicManagerBuilder lmb)
         {
-            return new(ReferencePM.lm, ReferencePM.ctx);
+            HashSet<string> projectedTokenTerms = new();
+            List<string> affectedLogicDefs = new();
+
+            foreach (var kvp in lmb.LogicLookup)
+            {
+                foreach (var token in kvp.Value.Tokens.Where(t => t is ProjectedToken))
+                {
+                    affectedLogicDefs.Add(kvp.Key);
+                    projectedTokenTerms.Add(((ProjectedToken)token).Inner.Write());
+                }
+            }
+
+            foreach (var term in projectedTokenTerms)
+            {
+                var proxyBoolTerm = lmb.GetOrAddTerm($"{term}_bool", TermType.SignedByte);
+                _proxyBoolTermLookup.Add(lmb.GetTerm(term), proxyBoolTerm);
+
+                foreach (var ld in affectedLogicDefs)
+                {
+                    lmb.DoSubst(new(ld, term, proxyBoolTerm.Name));
+                }
+            }
+
+            return lmb;
         }
 
         /// <summary>
@@ -106,13 +129,18 @@ namespace RCPathfinder
                 switch (term.Type)
                 {
                     case TermType.State:
-                        // Treat state-valued terms as stateless, unless traversal is done from that term's position
-                        LocalPM.SetState(term, ReferencePM.Has(term) ? DefaultState : null);
+                        // Remove all states. Manually add states in based on a node's position
+                        LocalPM.SetState(term, null);
                         break;
                     default:
                         LocalPM.Set(term, ReferencePM.Get(term));
                         break;
                 }
+            }
+
+            foreach (var kvp in _proxyBoolTermLookup)
+            {
+                LocalPM.Set(kvp.Value, ReferencePM.Get(kvp.Key));
             }
         }
 

@@ -37,9 +37,9 @@ namespace RCPathfinder
         public bool Stateless { get; set; }
         /// <summary>
         /// Whether or not, in a particular node, a previous term can be revisited.
-        /// May help improve performance significantly if set to false, at the expense of not being complete.
+        /// May help improve performance significantly if set to true, at the expense of not being complete.
         /// </summary>
-        public bool AllowBacktracking { get; set; }
+        public bool DisallowBacktracking { get; set; }
     }
 
     public enum TerminationConditionType

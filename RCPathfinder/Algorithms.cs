@@ -1,4 +1,5 @@
-﻿using RCPathfinder.Actions;
+﻿using RandomizerCore.Logic;
+using RCPathfinder.Actions;
 using System.Diagnostics;
 
 namespace RCPathfinder
@@ -74,18 +75,37 @@ namespace RCPathfinder
 
                 foreach (AbstractAction action in sd.GetActions(node))
                 {
-                    if (Node.TryTraverse(sd.LocalPM, sp, node, action, out Node? child))
+                    if (TryTraverse(sd.LocalPM, sp, node, action, out Node? child))
                     {
                         ss.Push(child);
                     }
                 }
 
-                sd.LocalPM.SetState(node.CurrentPosition, sd.DefaultState);
+                sd.LocalPM.SetState(node.CurrentPosition, null);
             }
 
             // RCPathfinderDebugMod.Instance?.LogDebug("Search fully exhausted");
             ss.SearchTime += timer.ElapsedMilliseconds;
             return false;
         }
+        
+        private static bool TryTraverse(ProgressionManager pm, SearchParams sp, Node parent, AbstractAction action, out Node? child)
+        {
+            if (sp.DisallowBacktracking && parent.IsPreviouslyVisitedPosition(action.Destination))
+            {
+                child = null;
+                return false;
+            }
+
+            if (sp.Stateless && action is StateLogicAction stla)
+            {
+                action = new StateIgnoringAction(stla);
+            }
+
+            return parent.TryTraverse(pm, action, out child);
+        }
     }
+
+
+    
 }

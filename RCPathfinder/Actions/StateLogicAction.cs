@@ -18,15 +18,10 @@ namespace RCPathfinder.Actions
             Logic = logic;
         }
 
-        public override bool TryDo(ProgressionManager pm, Term currentPosition, StateUnion currentStates, out Term? newPosition, out StateUnion? newStates)
+        public override bool TryDo(ProgressionManager pm, Term currentPosition, StateUnion currentStates, out StateUnion? satisfiableStates)
         {
-            if (Logic.CheckForUpdatedState(pm, null, new(), currentPosition, out newStates))
-            {
-                newPosition = Destination;
-                return true;
-            }
-            newPosition = default;
-            return false;
+            // Gets valid states based on the single currentPosition entry in the pm
+            return Logic.CheckForUpdatedState(pm, null, new(), currentPosition, out satisfiableStates);
         }
     }
 }

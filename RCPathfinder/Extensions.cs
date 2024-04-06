@@ -1,5 +1,4 @@
 ﻿using RandomizerCore.Collections;
-using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 
 namespace RCPathfinder
@@ -7,10 +6,11 @@ namespace RCPathfinder
     public static class Extensions
     {
         /// <summary>
-        /// Removes states from left that are comparably equal to those in right.
+        /// Tries to find what states in left are better than those in right.
+        /// Outputs both the difference and the union.
         /// Returns true if the resulting difference is not empty.
         /// </summary>
-        public static bool TrySubtract(this StateUnion left, List<State> right, out StateUnion result)
+        public static bool TrySubtractAndUnion(this StateUnion left, StateUnion right, out StateUnion difference, out StateUnion union)
         {
             List<State> states = new();
 
@@ -18,7 +18,7 @@ namespace RCPathfinder
             {
                 for (int j = 0; j < right.Count; j++)
                 {
-                    if (left[i].ComparablyEquals(right[j]))
+                    if (right[j].IsComparablyLE(left[i]))
                     {
                         goto continue_outer;
                     }
@@ -27,13 +27,11 @@ namespace RCPathfinder
             continue_outer: continue;
             }
 
-            result = new(states);
-            return result.Any();
-        }
+            difference = new(states);
+            states.AddRange(right);
+            union = new(states);
 
-        public static bool ComparablyEquals(this State left, State right)
-        {
-            return State.IsComparablyLE(left, right) && State.IsComparablyLE(right, left);
+            return difference.Any();
         }
 
         public static bool TryPop<T1, T2>(this PriorityQueue<T1, T2> pq, out T2? result) where T1 : IComparable<T1>
