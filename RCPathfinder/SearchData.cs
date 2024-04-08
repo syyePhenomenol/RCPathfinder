@@ -65,7 +65,7 @@ namespace RCPathfinder
 
                 foreach (var ld in affectedLogicDefs)
                 {
-                    lmb.DoSubst(new(ld, term, proxyBoolTerm.Name));
+                    lmb.DoSubst(new(ld, $"{term}/", proxyBoolTerm.Name));
                 }
             }
 
