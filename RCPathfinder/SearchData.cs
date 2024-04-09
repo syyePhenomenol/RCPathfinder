@@ -16,12 +16,13 @@ namespace RCPathfinder
         public ReadOnlyDictionary<string, Term> PositionLookup { get; }
         public ReadOnlyCollection<AbstractAction> Actions { get; }
         public ReadOnlyDictionary<Term, ReadOnlyCollection<AbstractAction>> ActionLookup { get; }
-        private Dictionary<Term, Term> _proxyBoolTermLookup;
+        private readonly Dictionary<Term, Term> _simpleProxyBools = new();
+        private readonly Dictionary<Term, LogicDef> _referenceProxyBools = new();
 
         public SearchData(ProgressionManager pm)
         {
             ReferencePM = pm;
-            _proxyBoolTermLookup = new();
+
             LocalPM = new(new(CreateLocalLM(new(pm.lm))), pm.ctx);
 
             // Temporarily remove initial progression to reset the PM
@@ -46,26 +47,41 @@ namespace RCPathfinder
         /// </summary>
         protected virtual LogicManagerBuilder CreateLocalLM(LogicManagerBuilder lmb)
         {
-            HashSet<string> projectedTokenTerms = new();
-            List<string> affectedLogicDefs = new();
+            Dictionary<string, string> substitutions = new();
+            HashSet<string> affectedLogicDefs = new();
 
             foreach (var kvp in lmb.LogicLookup)
             {
                 foreach (var token in kvp.Value.Tokens.Where(t => t is ProjectedToken))
                 {
                     affectedLogicDefs.Add(kvp.Key);
-                    projectedTokenTerms.Add(((ProjectedToken)token).Inner.Write());
+
+                    var pt = (ProjectedToken)token;
+                    Term newTerm;
+                    
+                    switch (pt.Inner)
+                    {
+                        case SimpleToken st:
+                            newTerm = lmb.GetOrAddTerm($"{st.Write()}-Simple_Bool", TermType.SignedByte);
+                            _simpleProxyBools[newTerm] = ReferencePM.lm.GetTermStrict(st.Write());
+                            break;
+                        case ReferenceToken rt:
+                            newTerm = lmb.GetOrAddTerm($"{rt.Target}-Reference_Bool", TermType.SignedByte);
+                            _referenceProxyBools[newTerm] = ReferencePM.lm.GetLogicDefStrict(rt.Target);
+                            break;
+                        default:
+                            throw new InvalidDataException();
+                    }
+
+                    substitutions[pt.Write()] = newTerm.Name;
                 }
             }
 
-            foreach (var term in projectedTokenTerms)
+            foreach (var kvp in substitutions)
             {
-                var proxyBoolTerm = lmb.GetOrAddTerm($"{term}_bool", TermType.SignedByte);
-                _proxyBoolTermLookup.Add(lmb.GetTerm(term), proxyBoolTerm);
-
                 foreach (var ld in affectedLogicDefs)
                 {
-                    lmb.DoSubst(new(ld, $"{term}/", proxyBoolTerm.Name));
+                    lmb.DoSubst(new(ld, kvp.Key, kvp.Value));
                 }
             }
 
@@ -138,9 +154,14 @@ namespace RCPathfinder
                 }
             }
 
-            foreach (var kvp in _proxyBoolTermLookup)
+            foreach (var kvp in _simpleProxyBools)
             {
-                LocalPM.Set(kvp.Value, ReferencePM.Get(kvp.Key));
+                LocalPM.Set(kvp.Key, ReferencePM.Get(kvp.Value));
+            }
+
+            foreach (var kvp in _referenceProxyBools)
+            {
+                LocalPM.Set(kvp.Key, kvp.Value.CanGet(ReferencePM) ? 1 : 0);
             }
         }
 
