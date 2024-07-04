@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 using RCPathfinder.Actions;
@@ -22,7 +22,7 @@ namespace RCPathfinder
             StartPosition = startPosition;
             CurrentPosition = startPosition.Term;
             CurrentStates = startStates;
-            _actions = new();
+            _actions = [];
             Cost = startPosition.Cost;
             _visitedStatesLookup = visitedStates;
 

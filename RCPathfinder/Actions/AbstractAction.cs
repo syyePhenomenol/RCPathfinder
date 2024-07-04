@@ -4,23 +4,15 @@ using RandomizerCore.Logic.StateLogic;
 
 namespace RCPathfinder.Actions
 {
-    public abstract class AbstractAction
+    public abstract class AbstractAction(string name, HashSet<Term> startPositions, Term dest, float cost)
     {
-        public string Name { get; }
+        public string Name { get; } = name;
         public string DebugString => $"{Prefix} - {(StartPositions.Any() ? StartPositions.Select(p => p.Name).Aggregate((a, b) => $"{a}, {b}") : "NONE")} -> {Destination.Name}";
         public string DebugStringShort => $"{Prefix} - ... -> {Destination.Name}";
         public abstract string Prefix { get; }
-        public ReadOnlyCollection<Term> StartPositions { get; }
-        public Term Destination { get; }
-        public float Cost { get; set; }
-
-        public AbstractAction(string name, HashSet<Term> startPositions, Term dest, float cost)
-        {
-            Name = name;
-            StartPositions = new(startPositions.OrderBy(t => t.Id).ToArray());
-            Destination = dest;
-            Cost = cost;
-        }
+        public ReadOnlyCollection<Term> StartPositions { get; } = new(startPositions.OrderBy(t => t.Id).ToArray());
+        public Term Destination { get; } = dest;
+        public float Cost { get; set; } = cost;
 
         /// <summary>
         /// The pm has no states except for the current position.

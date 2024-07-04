@@ -16,8 +16,8 @@ namespace RCPathfinder
         public ReadOnlyDictionary<string, Term> PositionLookup { get; }
         public ReadOnlyCollection<AbstractAction> Actions { get; }
         public ReadOnlyDictionary<Term, ReadOnlyCollection<AbstractAction>> ActionLookup { get; }
-        private readonly Dictionary<Term, Term> _simpleProxyBools = new();
-        private readonly Dictionary<Term, LogicDef> _referenceProxyBools = new();
+        private readonly Dictionary<Term, Term> _simpleProxyBools = [];
+        private readonly Dictionary<Term, LogicDef> _referenceProxyBools = [];
 
         public SearchData(ProgressionManager pm)
         {
@@ -47,8 +47,8 @@ namespace RCPathfinder
         /// </summary>
         protected virtual LogicManagerBuilder CreateLocalLM(LogicManagerBuilder lmb)
         {
-            Dictionary<string, string> substitutions = new();
-            HashSet<string> affectedLogicDefs = new();
+            Dictionary<string, string> substitutions = [];
+            HashSet<string> affectedLogicDefs = [];
 
             foreach (var kvp in lmb.LogicLookup)
             {
@@ -116,7 +116,7 @@ namespace RCPathfinder
         /// </summary>
         protected virtual Dictionary<Term, List<AbstractAction>> CreateActionLookup()
         {
-            Dictionary<Term, List<AbstractAction>> actionLookup = new();
+            Dictionary<Term, List<AbstractAction>> actionLookup = [];
 
             foreach (AbstractAction action in Actions)
             {
@@ -128,7 +128,7 @@ namespace RCPathfinder
                         continue;
                     }
 
-                    actionLookup[startPosition] = new() { action };
+                    actionLookup[startPosition] = [action];
                 }
             }
 
@@ -175,7 +175,7 @@ namespace RCPathfinder
                 return actions.Where(a => ReferencePM.lm.GetTerm(a.Destination.Name) is null
                     || ReferencePM.Has(a.Destination)).ToList();
             }
-            return new();
+            return [];
         }
     }
 }

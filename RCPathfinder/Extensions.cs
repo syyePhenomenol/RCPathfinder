@@ -12,7 +12,7 @@ namespace RCPathfinder
         /// </summary>
         public static bool TrySubtractAndUnion(this StateUnion left, StateUnion right, out StateUnion difference, out StateUnion union)
         {
-            List<State> states = new();
+            List<State> states = [];
 
             for (int i = 0; i < left.Count; i++)
             {

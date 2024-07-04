@@ -7,16 +7,11 @@ namespace RCPathfinder.Actions
     /// An action which can be performed if the position meets the logical prerequisites.
     /// Ignores state and propagates the previous state.
     /// </summary>
-    public class StateIgnoringAction : AbstractAction
+    public class StateIgnoringAction(Term term, LogicDef logic, float cost = 1f) : AbstractAction(term.Name, new(logic.GetTerms().Where(t => t.Type is TermType.State)), term, cost)
     {
         public override string Prefix => "stig";
 
-        public LogicDef Logic { get; init; }
-
-        public StateIgnoringAction(Term term, LogicDef logic, float cost = 1f) : base(term.Name, new(logic.GetTerms().Where(t => t.Type is TermType.State)), term, cost)
-        {
-            Logic = logic;
-        }
+        public LogicDef Logic { get; } = logic;
 
         public StateIgnoringAction(StateLogicAction stlo) : this(stlo.Destination, stlo.Logic, stlo.Cost) { }
 

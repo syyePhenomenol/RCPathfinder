@@ -47,20 +47,20 @@ namespace RCPathfinder
 
         public SearchState(SearchParams sp)
         {
-            FoundStartDestinationPairs = new();
+            FoundStartDestinationPairs = [];
             RemainingStartDestinationPairs = new(sp.StartPositions.SelectMany(s => sp.Destinations.Select(d => (s, d))));
 
             _queue = new();
-            _resultNodes = new();
-            _newResultNodes = new();
+            _resultNodes = [];
+            _newResultNodes = [];
 
-            Dictionary<string, Dictionary<Term, StateUnion>> visitedStateLookups = new();
+            Dictionary<string, Dictionary<Term, StateUnion>> visitedStateLookups = [];
 
             foreach (StartPosition start in sp.StartPositions ?? Enumerable.Empty<StartPosition>())
             {
                 if (!visitedStateLookups.TryGetValue(start.Key, out var visited))
                 {
-                    visited = new();
+                    visited = [];
                     visitedStateLookups.Add(start.Key, visited);
                 }
                 
