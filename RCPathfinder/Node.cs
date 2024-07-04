@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 using RCPathfinder.Actions;
@@ -15,7 +15,7 @@ namespace RCPathfinder
         public float Cost { get; }
         public int Depth { get; }
 
-        private Dictionary<Term, StateUnion> _visitedStatesLookup;
+        private readonly Dictionary<Term, StateUnion> _visitedStatesLookup;
 
         internal Node(StartPosition startPosition, StateUnion startStates, Dictionary<Term, StateUnion> visitedStates)
         {
@@ -26,7 +26,8 @@ namespace RCPathfinder
             Cost = startPosition.Cost;
             _visitedStatesLookup = visitedStates;
 
-            if (!TryAddVisitedStates(startPosition.Term, startStates, out var _)) throw new InvalidDataException();
+            // Ideally, this should return true as there shouldn't be two StartPositions that share the same Key and Term.
+            TryAddVisitedStates(startPosition.Term, startStates, out var _);
         }
 
         internal Node(Node parent, AbstractAction action, StateUnion newStates)
