@@ -9,8 +9,8 @@ namespace RCPathfinder
         public static bool DijkstraSearch(SearchData sd, SearchParams sp, SearchState ss)
         {
             ss.ResetForNewSearch();
-
             Stopwatch timer = Stopwatch.StartNew();
+            sd.LocalPM.StartTemp();
 
             while (ss.TryPop(out Node? node))
             {
@@ -23,6 +23,7 @@ namespace RCPathfinder
                 {
                     // RCPathfinderDebugMod.Instance?.LogDebug("Timed out");
 
+                    sd.LocalPM.RemoveTempItems();
                     ss.Push(node);
                     ss.SearchTime += timer.ElapsedMilliseconds;
                     ss.HasTimedOut = true;
@@ -33,9 +34,10 @@ namespace RCPathfinder
 
                 // Cost limit reached
                 if (node.Cost > sp.MaxCost)
-                {
+                {   
                     // RCPathfinderDebugMod.Instance?.LogDebug("Max cost reached");
 
+                    sd.LocalPM.RemoveTempItems();
                     ss.Push(node);
                     ss.SearchTime += timer.ElapsedMilliseconds;
                     return false;
@@ -64,15 +66,17 @@ namespace RCPathfinder
                     if (terminate)
                     {
                         // RCPathfinderDebugMod.Instance?.LogDebug("Termination condition reached");
+                        sd.LocalPM.RemoveTempItems();
                         ss.Push(node);
                         ss.SearchTime += timer.ElapsedMilliseconds;
                         return true;
                     }
                 }
 
-                // Add states to current position and traverse to adjacent nodes
+                // Set states to current position and traverse to adjacent nodes
+                // Since LocalPM is in temp mode, we don't need to reset any states straight afterwards
                 sd.LocalPM.SetState(node.CurrentPosition, node.CurrentStates);
-
+                
                 foreach (AbstractAction action in sd.GetActions(node))
                 {
                     if (TryTraverse(sd.LocalPM, sp, node, action, out Node? child))
@@ -80,11 +84,10 @@ namespace RCPathfinder
                         ss.Push(child);
                     }
                 }
-
-                sd.LocalPM.SetState(node.CurrentPosition, null);
             }
 
             // RCPathfinderDebugMod.Instance?.LogDebug("Search fully exhausted");
+            sd.LocalPM.RemoveTempItems();
             ss.SearchTime += timer.ElapsedMilliseconds;
             return false;
         }

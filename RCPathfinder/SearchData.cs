@@ -1,8 +1,7 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using RandomizerCore;
 using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
-using RandomizerCore.LogicItems;
 using RandomizerCore.StringLogic;
 using RCPathfinder.Actions;
 
@@ -22,18 +21,7 @@ namespace RCPathfinder
         public SearchData(ProgressionManager pm)
         {
             ReferencePM = pm;
-
             LocalPM = new(new(CreateLocalLM(new(pm.lm))), pm.ctx);
-
-            // Temporarily remove initial progression to reset the PM
-            if (LocalPM.ctx is not null)
-            {
-                ILogicItem ip = LocalPM.ctx.InitialProgression;
-                LocalPM.ctx.InitialProgression = new EmptyItem("");
-                LocalPM.Reset();
-                LocalPM.ctx.InitialProgression = ip;
-            }
-
             Positions = LocalPM.lm.Terms.GetTermList(TermType.State);
             PositionLookup = new(Positions.ToDictionary(p => p.Name, p => p));
             ActionLookup = new(CreateActions().ToDictionary(kvp => kvp.Key, kvp => new ReadOnlyCollection<AbstractAction>([.. kvp.Value.Distinct().OrderBy(a => a.Destination.Id)])));
@@ -162,8 +150,10 @@ namespace RCPathfinder
                 switch (term.Type)
                 {
                     case TermType.State:
-                        // Remove all states. Manually add states in based on a node's position
-                        LocalPM.SetState(term, null);
+                        // We manually and temporarily set the states of a node's current position just before trying to traverse.
+                        // The states that are set here don't matter for traversal but can be used for other evaluation,
+                        // such as propagating current progression to state-valued terms that are not in the ReferencePM.
+                        LocalPM.SetState(term, ReferencePM.GetState(term));
                         break;
                     default:
                         LocalPM.Set(term, ReferencePM.Get(term));
