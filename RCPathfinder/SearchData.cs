@@ -14,8 +14,8 @@ namespace RCPathfinder
         public ProgressionManager ReferencePM { get; }
         public ReadOnlyCollection<Term> Positions { get; }
         public ReadOnlyDictionary<string, Term> PositionLookup { get; }
-        public ReadOnlyCollection<AbstractAction> Actions { get; }
         public ReadOnlyDictionary<Term, ReadOnlyCollection<AbstractAction>> ActionLookup { get; }
+        public ReadOnlyCollection<AbstractAction> Actions { get; }
         private readonly Dictionary<Term, Term> _simpleProxyBools = [];
         private readonly Dictionary<Term, LogicDef> _referenceProxyBools = [];
 
@@ -36,8 +36,8 @@ namespace RCPathfinder
 
             Positions = LocalPM.lm.Terms.GetTermList(TermType.State);
             PositionLookup = new(Positions.ToDictionary(p => p.Name, p => p));
-            Actions = new(CreateActions().Distinct().ToArray());
-            ActionLookup = new(CreateActionLookup().ToDictionary(kvp => kvp.Key, kvp => new ReadOnlyCollection<AbstractAction>(kvp.Value.Distinct().OrderBy(a => a.Destination.Id).ToArray())));
+            ActionLookup = new(CreateActions().ToDictionary(kvp => kvp.Key, kvp => new ReadOnlyCollection<AbstractAction>([.. kvp.Value.Distinct().OrderBy(a => a.Destination.Id)])));
+            Actions = new([..ActionLookup.Values.SelectMany(a => a).OrderBy(a => a.Destination.Id).ThenBy(a => a.Start.Id)]);
         }
 
         /// <summary>
@@ -89,50 +89,67 @@ namespace RCPathfinder
         }
 
         /// <summary>
-        /// Override this method to add new AbstractActions.
+        /// Override this method to add new AbstractActions or replace existing ones.
         /// </summary>
-        protected virtual List<AbstractAction> CreateActions()
+        protected virtual Dictionary<Term, List<AbstractAction>> CreateActions()
         {
+            Dictionary<Term, List<AbstractAction>> actionLookup = [];
+
             // Default logic actions
-            List<AbstractAction> actions = new(Positions.Select(p => new StateLogicAction(p, (StateLogicDef)LocalPM.lm.GetLogicDefStrict(p.Name))).Where(a => a.StartPositions.Any()));
+            foreach (var destination in Positions)
+            {
+                var ld = LocalPM.lm.GetLogicDefStrict(destination.Name);
 
-            if (LocalPM.ctx is null) return actions;
+                if (ld is StateLogicDef sld)
+                {
+                    DNFLogicDef dld;
+                    if (sld is DNFLogicDef castDld)
+                    {
+                        dld = castDld;
+                    }
+                    else
+                    {
+                        dld = LocalPM.lm.CreateDNFLogicDef(sld.Name, sld.ToLogicClause());
+                    }
 
-            // Placement actions
+                    foreach (var start in dld.GetTerms().Where(t => t.Type is TermType.State))
+                    {
+                        AddAction(new StateLogicAction(start, destination, dld));
+                    }
+                }
+                else
+                {
+                    foreach (var start in ld.GetTerms().Where(t => t.Type is TermType.State))
+                    {
+                        AddAction(new StateIgnoringAction(start, destination, ld));
+                    }
+                }
+            }
+
+            if (LocalPM.ctx is null) return actionLookup;
+
+            // Default placement actions
             foreach (GeneralizedPlacement gp in LocalPM.ctx.EnumerateExistingPlacements())
             {
                 if (PositionLookup.TryGetValue(gp.Location.Name, out Term startPosition)
                     && PositionLookup.TryGetValue(gp.Item.Name, out Term destination))
                 {
-                    actions.Add(new PlacementAction(startPosition, destination));
-                }
-            }
-
-            return actions;
-        }
-
-        /// <summary>
-        /// Override this method to add or remove connections between position Terms and AbstractActions.
-        /// </summary>
-        protected virtual Dictionary<Term, List<AbstractAction>> CreateActionLookup()
-        {
-            Dictionary<Term, List<AbstractAction>> actionLookup = [];
-
-            foreach (AbstractAction action in Actions)
-            {
-                foreach(Term startPosition in action.StartPositions)
-                {
-                    if (actionLookup.TryGetValue(startPosition, out var actions))
-                    {
-                        actions.Add(action);
-                        continue;
-                    }
-
-                    actionLookup[startPosition] = [action];
+                    AddAction(new PlacementAction(startPosition, destination));
                 }
             }
 
             return actionLookup;
+
+            void AddAction(AbstractAction a)
+            {
+                if (actionLookup.TryGetValue(a.Start, out var actionList))
+                {
+                    actionList.Add(a);
+                    return;
+                }
+
+                actionLookup[a.Start] = [a];
+            }
         }
 
         /// <summary>

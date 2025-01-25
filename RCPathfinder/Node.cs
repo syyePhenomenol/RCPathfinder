@@ -43,7 +43,7 @@ namespace RCPathfinder
         
         internal bool TryTraverse(ProgressionManager pm, AbstractAction action, out Node? child)
         {
-            if (action.TryDo(pm, CurrentPosition, CurrentStates, out var satisfiableStates))
+            if (action.TryDo(pm, CurrentStates, out var satisfiableStates))
             {
                 if (satisfiableStates is null) throw new NullReferenceException();
             
@@ -93,20 +93,6 @@ namespace RCPathfinder
             foreach (AbstractAction action in _actions)
             {
                 text += $"-> {action.DebugString}\n";
-            }
-
-            return text.Substring(0, text.Length - 1);
-        }
-
-        public string PrintActionsShort()
-        {
-            if (!_actions.Any()) return "";
-
-            string text = "";
-
-            foreach (AbstractAction action in _actions)
-            {
-                text += $"-> {action.DebugStringShort}\n";
             }
 
             return text.Substring(0, text.Length - 1);
