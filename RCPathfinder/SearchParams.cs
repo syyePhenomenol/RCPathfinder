@@ -1,4 +1,4 @@
-﻿using RandomizerCore.Logic;
+using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 
 namespace RCPathfinder
@@ -22,7 +22,11 @@ namespace RCPathfinder
         /// <summary>
         /// Cost before algorithm is terminated. Has priority over other termination conditions except for MaxTime.
         /// </summary>
-        public float MaxCost { get; set; }
+        public float MaxCost { get; set; } = float.PositiveInfinity;
+        /// <summary>
+        /// Depth before algorithm is terminated. Has priority over other termination conditions except for MaxTime and MaxCost.
+        /// </summary>
+        public int MaxDepth { get; set; } = int.MaxValue;
         /// <summary>
         /// A condition for which the search will terminate before reaching max cost or exhaustion.
         /// </summary>

@@ -1,4 +1,4 @@
-﻿using RandomizerCore.Logic;
+using RandomizerCore.Logic;
 using RCPathfinder.Actions;
 using System.Diagnostics;
 
@@ -36,6 +36,17 @@ namespace RCPathfinder
                 if (node.Cost > sp.MaxCost)
                 {   
                     // RCPathfinderDebugMod.Instance?.LogDebug("Max cost reached");
+
+                    sd.LocalPM.RemoveTempItems();
+                    ss.Push(node);
+                    ss.SearchTime += timer.ElapsedMilliseconds;
+                    return false;
+                }
+
+                // Depth limit reached
+                if (node.Depth > sp.MaxDepth)
+                {
+                    // RCPathfinderDebugMod.Instance?.LogDebug("Max depth reached");
 
                     sd.LocalPM.RemoveTempItems();
                     ss.Push(node);
