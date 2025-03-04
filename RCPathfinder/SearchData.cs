@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using RandomizerCore;
 using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
@@ -9,135 +9,62 @@ namespace RCPathfinder
 {
     public class SearchData
     {
-        public ProgressionManager LocalPM { get; }
-        public ProgressionManager ReferencePM { get; }
-        public ReadOnlyCollection<Term> Positions { get; }
-        public ReadOnlyDictionary<string, Term> PositionLookup { get; }
-        public ReadOnlyDictionary<Term, ReadOnlyCollection<AbstractAction>> ActionLookup { get; }
-        public ReadOnlyCollection<AbstractAction> Actions { get; }
         private readonly Dictionary<Term, Term> _simpleProxyBools = [];
         private readonly Dictionary<Term, LogicDef> _referenceProxyBools = [];
+        
+        public ProgressionManager LocalPM { get; }
+        public ProgressionManager ReferencePM { get; }
+        public ReadOnlyDictionary<string, Term> StateTermLookup { get; }
+        public ReadOnlyDictionary<Term, ReadOnlyCollection<StandardAction>> StandardActionLookup { get; }
+        public ReadOnlyCollection<StartJumpAction> StartJumpActions { get; }
 
         public SearchData(ProgressionManager pm)
         {
             ReferencePM = pm;
-            LocalPM = new(new(CreateLocalLM(new(pm.lm))), pm.ctx);
-            Positions = LocalPM.lm.Terms.GetTermList(TermType.State);
-            PositionLookup = new(Positions.ToDictionary(p => p.Name, p => p));
-            ActionLookup = new(CreateActions().ToDictionary(kvp => kvp.Key, kvp => new ReadOnlyCollection<AbstractAction>([.. kvp.Value.Distinct().OrderBy(a => a.Destination.Id)])));
-            Actions = new([..ActionLookup.Values.SelectMany(a => a).OrderBy(a => a.Destination.Id).ThenBy(a => a.Start.Id)]);
-        }
+            LogicManagerBuilder localLmb = new(MakeLocalLM(new(pm.lm)));
 
-        /// <summary>
-        /// Override this method to customize logic in the locally stored ProgressionManager.
-        /// By default, replaces projection tokens with new bool term tokens to evaluate StateLogicDefs
-        /// by individual StateProviders at a time.
-        /// </summary>
-        protected virtual LogicManagerBuilder CreateLocalLM(LogicManagerBuilder lmb)
-        {
-            Dictionary<string, string> substitutions = [];
-            HashSet<string> affectedLogicDefs = [];
-
-            foreach (var kvp in lmb.LogicLookup)
+            // Replace projection tokens with new bool term tokens. This is done so 
+            // that only StatePaths with the current term as state provider are evaluated on.
+            foreach ((string name, LogicClause lc) in localLmb.LogicLookup.Select(kvp => (kvp.Key, kvp.Value)).ToArray())
             {
-                foreach (var token in kvp.Value.Tokens.Where(t => t is ProjectedToken))
+                foreach (LogicToken? token in lc.Tokens.Where(t => t is ProjectedToken))
                 {
-                    affectedLogicDefs.Add(kvp.Key);
-
                     var pt = (ProjectedToken)token;
                     Term newTerm;
                     
                     switch (pt.Inner)
                     {
                         case SimpleToken st:
-                            newTerm = lmb.GetOrAddTerm($"{st.Write()}-Simple_Bool", TermType.SignedByte);
+                            newTerm = localLmb.GetOrAddTerm($"{st.Write()}-Simple_Bool", TermType.SignedByte);
                             _simpleProxyBools[newTerm] = ReferencePM.lm.GetTermStrict(st.Write());
                             break;
                         case ReferenceToken rt:
-                            newTerm = lmb.GetOrAddTerm($"{rt.Target}-Reference_Bool", TermType.SignedByte);
+                            newTerm = localLmb.GetOrAddTerm($"{rt.Target}-Reference_Bool", TermType.SignedByte);
                             _referenceProxyBools[newTerm] = ReferencePM.lm.GetLogicDefStrict(rt.Target);
                             break;
                         default:
                             throw new InvalidDataException();
                     }
 
-                    substitutions[pt.Write()] = newTerm.Name;
+                    localLmb.DoSubst(new(name, pt.Write(), newTerm.Name));
                 }
             }
 
-            foreach (var kvp in substitutions)
-            {
-                foreach (var ld in affectedLogicDefs)
-                {
-                    lmb.DoSubst(new(ld, kvp.Key, kvp.Value));
-                }
-            }
-
-            return lmb;
+            LocalPM = new(new(localLmb), pm.ctx);
+            StateTermLookup = new(LocalPM.lm.Terms.GetTermList(TermType.State).ToDictionary(p => p.Name, p => p));
+            StandardActionLookup = new(MakeStandardActions().ToDictionary(kvp => kvp.Key, kvp => new ReadOnlyCollection<StandardAction>([.. kvp.Value.Distinct().OrderBy(a => a.Target.Id)])));
+            StartJumpActions = new([..MakeStartJumpActions().Distinct().OrderBy(a => a.Target?.Id)]);
         }
 
-        /// <summary>
-        /// Override this method to add new AbstractActions or replace existing ones.
-        /// </summary>
-        protected virtual Dictionary<Term, List<AbstractAction>> CreateActions()
+        public IEnumerable<Term> GetAllStateTerms()
         {
-            Dictionary<Term, List<AbstractAction>> actionLookup = [];
+            return StateTermLookup.Values;
+        }
 
-            // Default logic actions
-            foreach (var destination in Positions)
-            {
-                var ld = LocalPM.lm.GetLogicDefStrict(destination.Name);
-
-                if (ld is StateLogicDef sld)
-                {
-                    DNFLogicDef dld;
-                    if (sld is DNFLogicDef castDld)
-                    {
-                        dld = castDld;
-                    }
-                    else
-                    {
-                        dld = LocalPM.lm.CreateDNFLogicDef(sld.Name, sld.ToLogicClause());
-                    }
-
-                    foreach (var start in dld.GetTerms().Where(t => t.Type is TermType.State))
-                    {
-                        AddAction(new StateLogicAction(start, destination, dld));
-                    }
-                }
-                else
-                {
-                    foreach (var start in ld.GetTerms().Where(t => t.Type is TermType.State))
-                    {
-                        AddAction(new StateIgnoringAction(start, destination, ld));
-                    }
-                }
-            }
-
-            if (LocalPM.ctx is null) return actionLookup;
-
-            // Default placement actions
-            foreach (GeneralizedPlacement gp in LocalPM.ctx.EnumerateExistingPlacements())
-            {
-                if (PositionLookup.TryGetValue(gp.Location.Name, out Term startPosition)
-                    && PositionLookup.TryGetValue(gp.Item.Name, out Term destination))
-                {
-                    AddAction(new PlacementAction(startPosition, destination));
-                }
-            }
-
-            return actionLookup;
-
-            void AddAction(AbstractAction a)
-            {
-                if (actionLookup.TryGetValue(a.Start, out var actionList))
-                {
-                    actionList.Add(a);
-                    return;
-                }
-
-                actionLookup[a.Start] = [a];
-            }
+        public IEnumerable<AbstractAction> GetAllActions()
+        {
+            return StandardActionLookup.Values.SelectMany(a => a).OrderBy(a => a.Source.Id).ThenBy(a => a.Target.Id)
+                .Cast<AbstractAction>().Concat(StartJumpActions);
         }
 
         /// <summary>
@@ -150,7 +77,7 @@ namespace RCPathfinder
                 switch (term.Type)
                 {
                     case TermType.State:
-                        // We manually and temporarily set the states of a node's current position just before trying to traverse.
+                        // We manually and temporarily set the states of a node's current term just before trying to traverse.
                         // The states that are set here don't matter for traversal but can be used for other evaluation,
                         // such as propagating current progression to state-valued terms that are not in the ReferencePM.
                         LocalPM.SetState(term, ReferencePM.GetState(term));
@@ -161,27 +88,86 @@ namespace RCPathfinder
                 }
             }
 
-            foreach (var kvp in _simpleProxyBools)
+            foreach (KeyValuePair<Term, Term> kvp in _simpleProxyBools)
             {
                 LocalPM.Set(kvp.Key, ReferencePM.Get(kvp.Value));
             }
 
-            foreach (var kvp in _referenceProxyBools)
+            foreach (KeyValuePair<Term, LogicDef> kvp in _referenceProxyBools)
             {
                 LocalPM.Set(kvp.Key, kvp.Value.CanGet(ReferencePM) ? 1 : 0);
             }
         }
 
         /// <summary>
-        /// Override this method to add or prune actions depending on the node.
+        /// Override this method to customize logic in the locally stored ProgressionManager.
         /// </summary>
-        public virtual List<AbstractAction> GetActions(Node node)
+        protected virtual LogicManagerBuilder MakeLocalLM(LogicManagerBuilder lmb)
         {
-            if (ActionLookup.TryGetValue(node.CurrentPosition, out var actions))
+            return lmb;
+        }
+
+        /// <summary>
+        /// Override this method to add new StandardActions or replace existing ones.
+        /// </summary>
+        protected virtual Dictionary<Term, List<StandardAction>> MakeStandardActions()
+        {
+            Dictionary<Term, List<StandardAction>> actionLookup = [];
+
+            // Default logic actions
+            foreach (Term destination in StateTermLookup.Values)
             {
-                return actions.Where(a => ReferencePM.lm.GetTerm(a.Destination.Name) is null
-                    || ReferencePM.Has(a.Destination)).ToList();
+                LogicDef ld = LocalPM.lm.GetLogicDefStrict(destination.Name);
+
+                if (ld is StateLogicDef sld)
+                {
+                    if (ld is not DNFLogicDef dld)
+                    {
+                        dld = LocalPM.lm.CreateDNFLogicDef(sld.Name, sld.ToLogicClause());
+                    }
+
+                    foreach (Term? start in dld.GetTerms().Where(t => t.Type is TermType.State))
+                    {
+                        AddAction(new StateLogicAction(start, destination, dld));
+                    }
+                }
+                else
+                {
+                    foreach (Term? start in ld.GetTerms().Where(t => t.Type is TermType.State))
+                    {
+                        AddAction(new LogicAction(start, destination, ld));
+                    }
+                }
             }
+
+            if (LocalPM.ctx is null) return actionLookup;
+
+            // Default placement actions
+            foreach (GeneralizedPlacement gp in LocalPM.ctx.EnumerateExistingPlacements())
+            {
+                if (StateTermLookup.TryGetValue(gp.Location.Name, out Term source)
+                    && StateTermLookup.TryGetValue(gp.Item.Name, out Term target))
+                {
+                    AddAction(new PlacementAction(source, target));
+                }
+            }
+
+            return actionLookup;
+
+            void AddAction(StandardAction a)
+            {
+                if (actionLookup.TryGetValue(a.Source, out List<StandardAction>? actionList))
+                {
+                    actionList.Add(a);
+                    return;
+                }
+
+                actionLookup[a.Source] = [a];
+            }
+        }
+
+        protected virtual IEnumerable<StartJumpAction> MakeStartJumpActions()
+        {
             return [];
         }
     }

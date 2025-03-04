@@ -1,15 +1,15 @@
-﻿using RandomizerCore.Logic;
+using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 
 namespace RCPathfinder.Actions
 {
     /// <summary>
-    /// An action that links a source term to a target term without state change.
+    /// Action that propagates to a target from an arbitrary start position.
     /// </summary>
-    public class PlacementAction(Term source, Term target) : StandardAction(source, target)
+    public abstract class StartJumpAction : AbstractAction
     {
-        public override string Prefix => "plac";
-        public override float Cost => 1f;
+        public override string Prefix => "jump";
+        public sealed override string DebugString => $"{Prefix}: {Cost} -> {Target?.Name ?? "null"}";
 
         public override bool TryDo(Node node, ProgressionManager pm, out StateUnion? satisfiableStates)
         {

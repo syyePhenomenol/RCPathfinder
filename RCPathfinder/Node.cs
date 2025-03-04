@@ -7,95 +7,147 @@ namespace RCPathfinder
 {
     public class Node
     {
-        public StartPosition StartPosition { get; }
-        public Term CurrentPosition { get; }
-        public StateUnion CurrentStates { get; }
-        public ReadOnlyCollection<AbstractAction> Actions => _actions.AsReadOnly();
         private readonly List<AbstractAction> _actions;
-        public float Cost { get; }
-        public int Depth { get; }
-
+        // Nodes from the same StartPosition have the same State lookup.
         private readonly Dictionary<Term, StateUnion> _visitedStatesLookup;
 
-        internal Node(StartPosition startPosition, StateUnion startStates, Dictionary<Term, StateUnion> visitedStates)
+        public Position Start { get; }
+        public Position Current { get; }
+
+        public Term Term => Current.Term;
+        public float Cost => Current.Cost;
+        public int Depth { get; }
+
+        public ReadOnlyCollection<AbstractAction> Actions => new(_actions);
+        public string DebugString => string.Join(", ", [Start.DebugString, .._actions.Select(a => a.DebugString)]);
+
+        public Node(Position start)
         {
-            StartPosition = startPosition;
-            CurrentPosition = startPosition.Term;
-            CurrentStates = startStates;
             _actions = [];
-            Cost = startPosition.Cost;
-            _visitedStatesLookup = visitedStates;
+            _visitedStatesLookup = [];
+            Start = start;
+            Current = start;
+            Depth = 0;
 
-            // Ideally, this should return true as there shouldn't be two StartPositions that share the same Key and Term.
-            TryAddVisitedStates(startPosition.Term, startStates, out var _);
-        }
-
-        internal Node(Node parent, AbstractAction action, StateUnion newStates)
-        {
-            StartPosition = parent.StartPosition;
-            CurrentPosition = action.Destination;
-            CurrentStates = newStates;
-            _actions = new(parent._actions) { action };
-            Cost = parent.Cost + action.Cost;
-            Depth = parent.Depth + 1;
-            _visitedStatesLookup = parent._visitedStatesLookup;
-        }
-        
-        internal bool TryTraverse(ProgressionManager pm, AbstractAction action, out Node? child)
-        {
-            if (action.TryDo(pm, CurrentStates, out var satisfiableStates))
+            if (start.Term is not null)
             {
-                if (satisfiableStates is null) throw new NullReferenceException();
-            
-                if (TryAddVisitedStates(action.Destination, satisfiableStates, out var unvisitedStates))
+                _visitedStatesLookup[start.Term] = start.States;
+            }
+        }
+
+        public Node(Node parent, AbstractAction action, StateUnion newStates)
+        {
+            _actions = [..parent._actions, action];
+            _visitedStatesLookup = parent._visitedStatesLookup;
+            Start = parent.Start;
+            Current = new(action.Target, newStates, parent.Cost + action.Cost);
+            Depth = parent.Depth + 1;
+        }
+
+        internal bool EvaluateAndGetChildren(SearchData sd, SearchParams sp, out List<Node> children)
+        {
+            IEnumerable<AbstractAction> nextActions = [];
+            children = [];
+
+            if (Current is ArbitraryPosition)
+            {
+                nextActions = sd.StartJumpActions;
+            }
+            else if (sd.StandardActionLookup.TryGetValue(Current.Term, out ReadOnlyCollection<StandardAction> otoActions))
+            {
+                nextActions = otoActions.Cast<AbstractAction>();
+            }
+
+            if (!nextActions.Any())
+            {
+                return false;;
+            }
+
+            foreach (AbstractAction action in nextActions)
+            {
+                if (action.Target is null)
                 {
-                    child = new(this, action, unvisitedStates);
-                    return true;
+                    continue;
+                }
+
+                if (sp.DisallowBacktracking && IsPreviouslyVisitedTerm(action.Target))
+                {
+                    continue;
+                }
+
+                if (!sd.LocalPM.Has(action.Target))
+                {
+                    continue;
+                }
+
+                if (((!sp.Stateless && TryTraverse(sd.LocalPM, action, out Node? child))
+                        || (sp.Stateless && TryTraverseStateless(sd.LocalPM, action, out child)))
+                    && child is not null)
+                {
+                    children.Add(child);
                 }
             }
-                
+
+            return children.Any();
+        }
+        
+        private bool TryTraverse(ProgressionManager pm, AbstractAction action, out Node? child)
+        {
+            if (action.TryDo(this, pm, out StateUnion? satisfiableStates)
+                && satisfiableStates is not null
+                && TryAddVisitedStates(action.Target, satisfiableStates, out StateUnion? unvisitedStates))
+            {
+                child = new(this, action, unvisitedStates);
+                return true;
+            }
+
             child = default;
-            return false;            
+            return false;
+        }
+
+        private bool TryTraverseStateless(ProgressionManager pm, AbstractAction action, out Node? child)
+        {
+            if (action.TryDoStateless(this, pm)
+                && TryAddVisitedStates(action.Target, Current.States, out StateUnion? unvisitedStates))
+            {
+                child = new(this, action, unvisitedStates);
+                return true;
+            }
+            
+            child = default;
+            return false;
         }
 
         /// <summary>
         /// Returns true if any new or better states are added.
         /// </summary>
-        internal bool TryAddVisitedStates(Term position, StateUnion states, out StateUnion newStates)
+        private bool TryAddVisitedStates(Term? term, StateUnion states, out StateUnion newStates)
         {
-            if (!_visitedStatesLookup.TryGetValue(position, out var visitedStates))
+            if (term is null)
+            {
+                newStates = StateUnion.Empty;
+                return false;
+            }
+
+            if (!_visitedStatesLookup.TryGetValue(term, out StateUnion? visitedStates))
             {
                 newStates = states;
-                _visitedStatesLookup.Add(position, states);
+                _visitedStatesLookup.Add(term, states);
                 return true;
             }
 
             if (states.TrySubtractAndUnion(visitedStates, out newStates, out StateUnion newVisitedStates))
             {
-                _visitedStatesLookup[position] = newVisitedStates;
+                _visitedStatesLookup[term] = newVisitedStates;
                 return true;
             }
 
             return false;
         }
 
-        public bool IsPreviouslyVisitedPosition(Term position)
+        private bool IsPreviouslyVisitedTerm(Term term)
         {
-            return StartPosition.Term == position || _actions.Any(a => a.Destination == position);
-        }
-
-        public string PrintActions()
-        {
-            if (!_actions.Any()) return "";
-
-            string text = "";
-
-            foreach (AbstractAction action in _actions)
-            {
-                text += $"-> {action.DebugString}\n";
-            }
-
-            return text.Substring(0, text.Length - 1);
+            return Start.Term == term || _actions.Any(a => a.Target == term);
         }
     }
 }

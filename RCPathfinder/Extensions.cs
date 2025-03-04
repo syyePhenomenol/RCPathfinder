@@ -1,4 +1,5 @@
 ﻿using RandomizerCore.Collections;
+using RandomizerCore.Logic;
 using RandomizerCore.Logic.StateLogic;
 
 namespace RCPathfinder
@@ -7,6 +8,7 @@ namespace RCPathfinder
     {
         /// <summary>
         /// Tries to find what states in left are better than those in right.
+        /// Better means lower state values!
         /// Outputs both the difference and the union.
         /// Returns true if the resulting difference is not empty.
         /// </summary>
@@ -20,6 +22,7 @@ namespace RCPathfinder
                 {
                     if (right[j].IsComparablyLE(left[i]))
                     {
+                        // Right state is better than left state
                         goto continue_outer;
                     }
                 }
@@ -39,9 +42,9 @@ namespace RCPathfinder
             return pq.TryExtractMin(out _, out result);
         }
 
-        public static bool IsOrIsSubclassInstanceOf<T>(this object obj)
+        public static void SetState(this ProgressionManager pm, Position position)
         {
-            return obj is T || obj.GetType().IsSubclassOf(typeof(T));
+            pm.SetState(position.Term, position.States);
         }
     }
 }

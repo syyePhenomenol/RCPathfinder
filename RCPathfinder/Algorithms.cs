@@ -1,6 +1,4 @@
-using RandomizerCore.Logic;
-using RCPathfinder.Actions;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace RCPathfinder
 {
@@ -14,9 +12,12 @@ namespace RCPathfinder
 
             while (ss.TryPop(out Node? node))
             {
-                if (node is null) throw new NullReferenceException(nameof(Node));
-
-                // RCPathfinderDebugMod.Instance?.LogDebug(node.PrintActions());
+                if (node is null)
+                {
+                    throw new NullReferenceException(nameof(Node));
+                }
+                
+                // RCPathfinderDebugMod.Instance?.LogDebug($"POP: {node.Cost}, {node.DebugString}");
 
                 // Time limit reached.
                 if (timer.ElapsedMilliseconds > sp.MaxTime)
@@ -55,24 +56,24 @@ namespace RCPathfinder
                 }
 
                 // Destination reached
-                if (!ss.ResultNodes.Contains(node) && sp.Destinations.Contains(node.CurrentPosition))
+                if (!ss.ResultNodes.Contains(node) && sp.Destinations.Contains(node.Current.Term))
                 {
-                    // RCPathfinderDebugMod.Instance?.LogDebug($"Destination found: {node.Position.Name}");
-
+                    // RCPathfinderDebugMod.Instance?.LogDebug($"Destination found: {node.DebugString}");
+                    
                     ss.AddResultNode(node);
 
                     bool terminate = sp.TerminationCondition switch
                     {
                         TerminationConditionType.Any => true,
-                        TerminationConditionType.AnyUniqueDestination => ss.FoundStartDestinationPairs.All(pair => pair.destination != node.CurrentPosition),
-                        TerminationConditionType.AnyUniqueStartAndDestination => !ss.FoundStartDestinationPairs.Contains((node.StartPosition, node.CurrentPosition)),
-                        TerminationConditionType.EveryDestination => ss.RemainingStartDestinationPairs.All(pair => pair.destination == node.CurrentPosition),
-                        TerminationConditionType.EveryStartAndDestination => ss.RemainingStartDestinationPairs.All(pair => pair == (node.StartPosition, node.CurrentPosition)),
+                        TerminationConditionType.AnyUniqueDestination => ss.FoundStartDestinationPairs.All(pair => pair.destination != node.Term),
+                        TerminationConditionType.AnyUniqueStartAndDestination => !ss.FoundStartDestinationPairs.Contains((node.Start, node.Term)),
+                        TerminationConditionType.EveryDestination => ss.RemainingStartDestinationPairs.All(pair => pair.destination == node.Term),
+                        TerminationConditionType.EveryStartAndDestination => ss.RemainingStartDestinationPairs.All(pair => pair == (node.Start, node.Term)),
                         _ => false
                     };
 
-                    ss.FoundStartDestinationPairs.Add((node.StartPosition, node.CurrentPosition));
-                    ss.RemainingStartDestinationPairs.Remove((node.StartPosition, node.CurrentPosition));
+                    ss.FoundStartDestinationPairs.Add((node.Start, node.Term));
+                    ss.RemainingStartDestinationPairs.Remove((node.Start, node.Term));
 
                     if (terminate)
                     {
@@ -84,16 +85,22 @@ namespace RCPathfinder
                     }
                 }
 
-                // Set states to current position and traverse to adjacent nodes
-                // Since LocalPM is in temp mode, we don't need to reset any states straight afterwards
-                sd.LocalPM.SetState(node.CurrentPosition, node.CurrentStates);
-                
-                foreach (AbstractAction action in sd.GetActions(node))
+                // The state of other terms in the PM should not be used for logic evaluation
+                if (node.Current is not ArbitraryPosition)
                 {
-                    if (TryTraverse(sd.LocalPM, sp, node, action, out Node? child))
+                    sd.LocalPM.SetState(node.Current);
+                }
+
+                if (node.EvaluateAndGetChildren(sd, sp, out List<Node> children))
+                {
+                    foreach (Node child in children)
                     {
                         ss.Push(child);
                     }
+                }
+                else
+                {
+                    ss.AddTerminalNode(node);
                 }
             }
 
@@ -102,24 +109,5 @@ namespace RCPathfinder
             ss.SearchTime += timer.ElapsedMilliseconds;
             return false;
         }
-        
-        private static bool TryTraverse(ProgressionManager pm, SearchParams sp, Node parent, AbstractAction action, out Node? child)
-        {
-            if (sp.DisallowBacktracking && parent.IsPreviouslyVisitedPosition(action.Destination))
-            {
-                child = null;
-                return false;
-            }
-
-            if (sp.Stateless && action is StateLogicAction stla)
-            {
-                action = new StateIgnoringAction(stla);
-            }
-
-            return parent.TryTraverse(pm, action, out child);
-        }
     }
-
-
-    
 }
