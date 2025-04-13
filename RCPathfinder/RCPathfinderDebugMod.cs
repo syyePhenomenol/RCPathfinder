@@ -1,14 +1,18 @@
-// using Modding;
+#if DEBUG
 
-// namespace RCPathfinder
-// {
-//     public class RCPathfinderDebugMod : Mod
-//     {
-//         public static RCPathfinderDebugMod? Instance { get; private set; }
+using Modding;
 
-//         public override void Initialize()
-//         {
-//             Instance = this;
-//         }
-//     }
-// }
+namespace RCPathfinder
+{
+    public class RCPathfinderDebugMod : Mod
+    {
+        public static RCPathfinderDebugMod? Instance { get; private set; }
+
+        public override void Initialize()
+        {
+            Instance = this;
+        }
+    }
+}
+
+#endif

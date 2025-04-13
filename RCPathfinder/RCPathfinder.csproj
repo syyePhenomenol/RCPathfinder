@@ -2,8 +2,8 @@
 
 	<PropertyGroup>
 		<AssemblyTitle>RCPathfinder</AssemblyTitle>
-		<AssemblyVersion>1.3.3.0</AssemblyVersion>
-		<FileVersion>1.3.3.0</FileVersion>
+		<AssemblyVersion>1.4.0.0</AssemblyVersion>
+		<FileVersion>1.4.0.0</FileVersion>
 		<TargetFramework>net472</TargetFramework>
 		<Deterministic>true</Deterministic>
 		<LangVersion>preview</LangVersion>
@@ -48,9 +48,9 @@
 		<Using Remove="System.Net.Http" />
 		<Using Remove="System.Threading" />
 		<Using Remove="System.Threading.Tasks" />
-		<!-- <Reference Include="Assembly-CSharp">
+		<Reference Condition = " '$(Configuration)' == 'Debug' " Include="Assembly-CSharp">
 			<HintPath>$(RefsFolder)\Assembly-CSharp.dll</HintPath>
-		</Reference> -->
+		</Reference>
 		<Reference Include="RandomizerCore">
 			<HintPath>$(RefsFolder)\Mods\RandomizerCore\RandomizerCore.dll</HintPath>
 		</Reference>

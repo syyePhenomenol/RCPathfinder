@@ -17,27 +17,28 @@ public static class Algorithms
                 throw new NullReferenceException(nameof(Node));
             }
 
-            // RCPathfinderDebugMod.Instance?.LogDebug($"POP: {node.Cost}, {node.DebugString}");
-
+#if DEBUG
+            RCPathfinderDebugMod.Instance?.LogFine($"POP: {node.Cost}, {node.DebugString}");
+#endif
             // Time limit reached.
             if (timer.ElapsedMilliseconds > sp.MaxTime)
             {
-                // RCPathfinderDebugMod.Instance?.LogDebug("Timed out");
-
+#if DEBUG
+                RCPathfinderDebugMod.Instance?.LogFine("Timed out");
+#endif
                 sd.LocalPM.RemoveTempItems();
                 ss.Push(node);
                 ss.SearchTime += timer.ElapsedMilliseconds;
                 ss.HasTimedOut = true;
-
-                // RCPathfinderDebugMod.Instance?.LogDebug("Finishing search");
                 return false;
             }
 
             // Cost limit reached
             if (node.Cost > sp.MaxCost)
             {
-                // RCPathfinderDebugMod.Instance?.LogDebug("Max cost reached");
-
+#if DEBUG
+                RCPathfinderDebugMod.Instance?.LogFine("Max cost reached");
+#endif
                 sd.LocalPM.RemoveTempItems();
                 ss.Push(node);
                 ss.SearchTime += timer.ElapsedMilliseconds;
@@ -47,8 +48,9 @@ public static class Algorithms
             // Depth limit reached
             if (node.Depth > sp.MaxDepth)
             {
-                // RCPathfinderDebugMod.Instance?.LogDebug("Max depth reached");
-
+#if DEBUG
+                RCPathfinderDebugMod.Instance?.LogDebug("Max depth reached");
+#endif
                 sd.LocalPM.RemoveTempItems();
                 ss.Push(node);
                 ss.SearchTime += timer.ElapsedMilliseconds;
@@ -58,7 +60,9 @@ public static class Algorithms
             // Destination reached
             if (!ss.ResultNodes.Contains(node) && sp.Destinations.Contains(node.Current.Term))
             {
-                // RCPathfinderDebugMod.Instance?.LogDebug($"Destination found: {node.DebugString}");
+#if DEBUG
+                RCPathfinderDebugMod.Instance?.LogFine($"Destination found: {node.DebugString}");
+#endif
 
                 ss.AddResultNode(node);
 
@@ -85,7 +89,9 @@ public static class Algorithms
 
                 if (terminate)
                 {
-                    // RCPathfinderDebugMod.Instance?.LogDebug("Termination condition reached");
+#if DEBUG
+                    RCPathfinderDebugMod.Instance?.LogDebug("Termination condition reached");
+#endif
                     sd.LocalPM.RemoveTempItems();
                     ss.Push(node);
                     ss.SearchTime += timer.ElapsedMilliseconds;
@@ -103,6 +109,9 @@ public static class Algorithms
             {
                 foreach (var child in children)
                 {
+#if DEBUG
+                    RCPathfinderDebugMod.Instance?.LogDebug($"PUSH: {child.Cost}, {child.DebugString}");
+#endif
                     ss.Push(child);
                 }
             }
@@ -112,7 +121,9 @@ public static class Algorithms
             }
         }
 
-        // RCPathfinderDebugMod.Instance?.LogDebug("Search fully exhausted");
+#if DEBUG
+        RCPathfinderDebugMod.Instance?.LogDebug("Search fully exhausted");
+#endif
         sd.LocalPM.RemoveTempItems();
         ss.SearchTime += timer.ElapsedMilliseconds;
         return false;
