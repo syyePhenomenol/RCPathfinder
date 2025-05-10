@@ -45,24 +45,21 @@ public class Node
     public ReadOnlyCollection<AbstractAction> Actions => new(_actions);
     public string DebugString => string.Join(", ", [Start.DebugString, .. _actions.Select(a => a.DebugString)]);
 
-    internal bool EvaluateAndGetChildren(SearchData sd, SearchParams sp, out List<Node> children)
+    internal bool EvaluateAndGetChildren(ProgressionManager pm, SearchData sd, SearchParams sp, out List<Node> children)
     {
-        IEnumerable<AbstractAction> nextActions = [];
+        List<AbstractAction> nextActions = [];
         children = [];
 
-        if (Current is ArbitraryPosition)
+        if (sd.StandardActionLookup.TryGetValue(Current.Term, out var otoActions))
         {
-            nextActions = sd.StartJumpActions;
+            nextActions.AddRange(otoActions.Where(a => pm.Has(a.Target)).Cast<AbstractAction>());
         }
-        else if (sd.StandardActionLookup.TryGetValue(Current.Term, out var otoActions))
-        {
-            nextActions = otoActions.Cast<AbstractAction>();
-        }
+
+        nextActions.AddRange(sd.GetAdditionalActions(this));
 
         if (!nextActions.Any())
         {
             return false;
-            ;
         }
 
         foreach (var action in nextActions)
@@ -77,18 +74,19 @@ public class Node
                 continue;
             }
 
-            if (!sd.LocalPM.Has(action.Target))
-            {
-                continue;
-            }
-
             if (
                 (
-                    (!sp.Stateless && TryTraverse(sd.LocalPM, action, out var child))
-                    || (sp.Stateless && TryTraverseStateless(sd.LocalPM, action, out child))
+                    (!sp.Stateless && TryTraverse(pm, action, out var child))
+                    || (sp.Stateless && TryTraverseStateless(pm, action, out child))
                 ) && child is not null
             )
             {
+#if DEBUG
+                if (!pm.Has(action.Target))
+                {
+                    RCPathfinderDebugMod.Instance?.LogDebug($"Can traverse but target not in pm: {action.DebugString}");
+                }
+#endif
                 children.Add(child);
             }
         }

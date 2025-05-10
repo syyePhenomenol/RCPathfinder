@@ -1,14 +1,22 @@
 ﻿using System.Diagnostics;
+using RandomizerCore.Logic;
 
 namespace RCPathfinder;
 
 public static class Algorithms
 {
-    public static bool DijkstraSearch(SearchData sd, SearchParams sp, SearchState ss)
+    public static bool DijkstraSearch(ProgressionManager pm, SearchData sd, SearchParams sp, SearchState ss)
     {
+        if (pm.lm != sd.LM || pm.ctx != sd.Context)
+        {
+            throw new InvalidDataException(
+                "The LogicManager and Context of the ProgressionManager do not match the SearchData."
+            );
+        }
+
         ss.ResetForNewSearch();
         var timer = Stopwatch.StartNew();
-        sd.LocalPM.StartTemp();
+        pm.StartTemp();
 
         while (ss.TryPop(out var node))
         {
@@ -26,7 +34,7 @@ public static class Algorithms
 #if DEBUG
                 RCPathfinderDebugMod.Instance?.LogFine("Timed out");
 #endif
-                sd.LocalPM.RemoveTempItems();
+                pm.RemoveTempItems();
                 ss.Push(node);
                 ss.SearchTime += timer.ElapsedMilliseconds;
                 ss.HasTimedOut = true;
@@ -39,7 +47,7 @@ public static class Algorithms
 #if DEBUG
                 RCPathfinderDebugMod.Instance?.LogFine("Max cost reached");
 #endif
-                sd.LocalPM.RemoveTempItems();
+                pm.RemoveTempItems();
                 ss.Push(node);
                 ss.SearchTime += timer.ElapsedMilliseconds;
                 return false;
@@ -49,9 +57,9 @@ public static class Algorithms
             if (node.Depth > sp.MaxDepth)
             {
 #if DEBUG
-                RCPathfinderDebugMod.Instance?.LogDebug("Max depth reached");
+                RCPathfinderDebugMod.Instance?.LogFine("Max depth reached");
 #endif
-                sd.LocalPM.RemoveTempItems();
+                pm.RemoveTempItems();
                 ss.Push(node);
                 ss.SearchTime += timer.ElapsedMilliseconds;
                 return false;
@@ -90,9 +98,9 @@ public static class Algorithms
                 if (terminate)
                 {
 #if DEBUG
-                    RCPathfinderDebugMod.Instance?.LogDebug("Termination condition reached");
+                    RCPathfinderDebugMod.Instance?.LogFine("Termination condition reached");
 #endif
-                    sd.LocalPM.RemoveTempItems();
+                    pm.RemoveTempItems();
                     ss.Push(node);
                     ss.SearchTime += timer.ElapsedMilliseconds;
                     return true;
@@ -102,15 +110,15 @@ public static class Algorithms
             // The state of other terms in the PM should not be used for logic evaluation
             if (node.Current is not ArbitraryPosition)
             {
-                sd.LocalPM.SetState(node.Current);
+                pm.SetState(node.Current);
             }
 
-            if (node.EvaluateAndGetChildren(sd, sp, out var children))
+            if (node.EvaluateAndGetChildren(pm, sd, sp, out var children))
             {
                 foreach (var child in children)
                 {
 #if DEBUG
-                    RCPathfinderDebugMod.Instance?.LogDebug($"PUSH: {child.Cost}, {child.DebugString}");
+                    RCPathfinderDebugMod.Instance?.LogFine($"PUSH: {child.Cost}, {child.DebugString}");
 #endif
                     ss.Push(child);
                 }
@@ -122,9 +130,9 @@ public static class Algorithms
         }
 
 #if DEBUG
-        RCPathfinderDebugMod.Instance?.LogDebug("Search fully exhausted");
+        RCPathfinderDebugMod.Instance?.LogFine("Search fully exhausted");
 #endif
-        sd.LocalPM.RemoveTempItems();
+        pm.RemoveTempItems();
         ss.SearchTime += timer.ElapsedMilliseconds;
         return false;
     }

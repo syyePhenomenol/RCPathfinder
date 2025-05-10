@@ -4,7 +4,7 @@ using RandomizerCore.Logic.StateLogic;
 namespace RCPathfinder.Actions;
 
 /// <summary>
-/// An action that links a source term to a target term without state change.
+/// An action that links a source term to a target term without logical prerequisite.
 /// </summary>
 /// <param name="source"></param>
 /// <param name="target"></param>

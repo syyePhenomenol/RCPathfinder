@@ -6,7 +6,7 @@ namespace RCPathfinder.Actions;
 /// <summary>
 /// Action that propagates to a target from an arbitrary start position.
 /// </summary>
-public abstract class StartJumpAction : AbstractAction
+public abstract class JumpAction : AbstractAction
 {
     public override string Prefix => "jump";
     public sealed override string DebugString => $"{Prefix}: {Cost} -> {Target?.Name ?? "null"}";
