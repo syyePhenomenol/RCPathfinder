@@ -12,7 +12,7 @@ public abstract class ProgressionSynchronizer
     {
         ReferencePM = referencePM;
         LogicExtender = logicExtender;
-        LocalPM = new(logicExtender.LocalLM, null);
+        LocalPM = new(logicExtender.LocalLM, referencePM.ctx);
 
         // Do automatic updating on new waypoints, transitions and placements
         LocalPM.mu.AddWaypoints(LocalPM.lm.Waypoints.Where(w => !ReferencePM.lm.Terms.Contains(w.term)));

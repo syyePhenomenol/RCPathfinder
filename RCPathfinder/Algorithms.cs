@@ -7,11 +7,9 @@ public static class Algorithms
 {
     public static bool DijkstraSearch(ProgressionManager pm, SearchData sd, SearchParams sp, SearchState ss)
     {
-        if (pm.lm != sd.LM || pm.ctx != sd.Context)
+        if (pm.lm != sd.LM)
         {
-            throw new InvalidDataException(
-                "The LogicManager and Context of the ProgressionManager do not match the SearchData."
-            );
+            throw new InvalidDataException("The LogicManager of the ProgressionManager does not match the SearchData.");
         }
 
         ss.ResetForNewSearch();
