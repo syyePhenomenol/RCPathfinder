@@ -1,3 +1,4 @@
+using RandomizerCore;
 using RandomizerCore.Logic;
 
 namespace RCPathfinder.Logic;
@@ -8,28 +9,34 @@ namespace RCPathfinder.Logic;
 /// </summary>
 public abstract class ProgressionSynchronizer
 {
-    public ProgressionSynchronizer(ProgressionManager referencePM, LogicExtender logicExtender)
+    public ProgressionSynchronizer(LogicExtender logicExtender, RandoContext? ctx)
     {
-        ReferencePM = referencePM;
         LogicExtender = logicExtender;
-        LocalPM = new(logicExtender.LocalLM, referencePM.ctx);
+        LocalPM = new(logicExtender.LocalLM, ctx);
 
         // Do automatic updating on new waypoints, transitions and placements
-        LocalPM.mu.AddWaypoints(LocalPM.lm.Waypoints.Where(w => !ReferencePM.lm.Terms.Contains(w.term)));
+        LocalPM.mu.AddWaypoints(LocalPM.lm.Waypoints.Where(w => !LogicExtender.ReferenceLM.Terms.Contains(w.term)));
         LocalPM.mu.AddTransitions(
-            LocalPM.lm.TransitionLookup.Values.Where(t => !ReferencePM.lm.Terms.Contains(t.term))
+            LocalPM.lm.TransitionLookup.Values.Where(t => !LogicExtender.ReferenceLM.Terms.Contains(t.term))
         );
         LocalPM.mu.AddPlacements(logicExtender.GetLocalPlacements());
 
         Update();
     }
 
-    public ProgressionManager ReferencePM { get; }
     public LogicExtender LogicExtender { get; }
 
+    // Its LM should match the ReferenceLM of the LogicExtender.
+    public abstract ProgressionManager ReferencePM { get; }
     public ProgressionManager LocalPM { get; }
 
     public void Update()
+    {
+        ReferenceUpdate();
+        LocalUpdate();
+    }
+
+    public void ReferenceUpdate()
     {
         // Copies ReferencePM to LocalPM
         foreach (var term in ReferencePM.lm.Terms)
@@ -44,7 +51,10 @@ public abstract class ProgressionSynchronizer
                     break;
             }
         }
+    }
 
+    public void LocalUpdate()
+    {
         // Manual updates to LocalPM for its unique terms
         ManuallyUpdateTerms();
 
