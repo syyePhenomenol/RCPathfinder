@@ -17,8 +17,15 @@ public class StateLogicAction(Term start, Term destination, DNFLogicDef logic) :
 
     public override bool TryDo(Node node, ProgressionManager pm, out StateUnion? satisfiableStates)
     {
-        // Gets valid states based on the single term entry in the pm
-        // The "current" parameter refers to the existing StateUnion of the *destination*, which is why it is set null.
-        return ((DNFLogicDef)Logic).CheckForUpdatedState(pm, null, [], Source, out satisfiableStates);
+        List<State> resultStates = [];
+
+        if (((DNFLogicDef)Logic).EvaluateStateFrom(pm, Source, resultStates))
+        {
+            satisfiableStates = new(resultStates);
+            return true;
+        }
+
+        satisfiableStates = null;
+        return false;
     }
 }

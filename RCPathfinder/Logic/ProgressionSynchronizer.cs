@@ -31,7 +31,7 @@ public abstract class ProgressionSynchronizer
 
     public void Update()
     {
-        // Copies ReferencePM to LocalPM and sets proxy terms
+        // Copies ReferencePM to LocalPM
         foreach (var term in ReferencePM.lm.Terms)
         {
             switch (term.Type)
@@ -43,16 +43,6 @@ public abstract class ProgressionSynchronizer
                     LocalPM.Set(term, ReferencePM.Get(term));
                     break;
             }
-        }
-
-        foreach (var kvp in LogicExtender.SimpleBools)
-        {
-            LocalPM.Set(kvp.Key, ReferencePM.Get(kvp.Value));
-        }
-
-        foreach (var kvp in LogicExtender.ReferenceBools)
-        {
-            LocalPM.Set(kvp.Key, kvp.Value.CanGet(ReferencePM) ? 1 : 0);
         }
 
         // Manual updates to LocalPM for its unique terms
