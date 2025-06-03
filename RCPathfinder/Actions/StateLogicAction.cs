@@ -17,11 +17,25 @@ public class StateLogicAction(Term start, Term destination, DNFLogicDef logic) :
 
     public override bool TryDo(Node node, ProgressionManager pm, out StateUnion? satisfiableStates)
     {
-        List<State> resultStates = [];
+#if DEBUG
+        if (!((DNFLogicDef)Logic).GetStateProviders().Any(sp => ReferenceEquals(sp, Source)))
+        {
+            RCPathfinderDebugMod.Instance?.LogDebug($"No matching state providers: {Source}");
+        }
+#endif
 
-        if (((DNFLogicDef)Logic).EvaluateStateFrom(pm, Source, resultStates))
+        List<State> resultStates = [];
+        var succeedOnEmpty = ((DNFLogicDef)Logic).EvaluateStateFrom(pm, Source, resultStates);
+
+        if (resultStates.Any())
         {
             satisfiableStates = new(resultStates);
+            return true;
+        }
+
+        if (succeedOnEmpty)
+        {
+            satisfiableStates = StateUnion.Empty;
             return true;
         }
 
